@@ -6,7 +6,7 @@ import { ingestNutrition, renderNutrition } from "./nutrition.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v2.0";
+export const APP_VERSION = "v2.1";
 
 const S = {
   cfg: loadConfig(),
@@ -701,9 +701,35 @@ function rerenderEditor() {
 
 // ---------------------------------------------------------------- routeur
 
-function setTab(name) {
-  document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === name));
+// Trois espaces : le menu ☰ change d'espace, la barre du bas navigue dans l'espace.
+const SPACES = {
+  sport: { label: "Sport", icon: "🏋️", home: "#/today", tabs: [
+    ["today", "#/today", "●", "Aujourd'hui"], ["week", "#/week", "▦", "Semaine"],
+    ["history", "#/history", "☰", "Historique"], ["progress", "#/progress", "↗", "Progrès"],
+    ["goals", "#/goals", "◎", "Objectifs"]] },
+  nutrition: { label: "Nutrition", icon: "🥗", home: "#/n/jour", tabs: [
+    ["jour", "#/n/jour", "●", "Aujourd'hui"], ["semaine", "#/n/semaine", "▦", "Menu"],
+    ["courses", "#/n/courses", "✓", "Courses"], ["corps", "#/n/corps", "⚖", "Poids"],
+    ["bilan", "#/n/bilan", "↗", "Bilan"]] },
+  sommeil: { label: "Sommeil", icon: "😴", home: "#/s/nuit", tabs: [
+    ["nuit", "#/s/nuit", "☾", "Cette nuit"], ["suivi", "#/s/suivi", "↗", "Suivi"]] },
+};
+let currentSpace = null;
+
+function setSpace(space, tab) {
+  const sp = SPACES[space];
+  if (space !== currentSpace) {
+    currentSpace = space;
+    const nav = document.querySelector("nav.tabs");
+    nav.style.setProperty("--n", sp.tabs.length);
+    nav.innerHTML = sp.tabs.map(([id, href, ic, lab]) =>
+      `<a href="${href}" data-tab="${id}"><span>${ic}</span>${lab}</a>`).join("");
+    document.getElementById("space-name").textContent = sp.label.toLowerCase();
+    document.querySelectorAll("#drawer [data-space]").forEach((a) => a.classList.toggle("on", a.dataset.space === space));
+  }
+  document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === tab));
 }
+const setTab = (name) => setSpace(currentSpace || "sport", name);
 
 // Enregistrement générique pour le volet nutrition (retourne true si OK).
 const nutCtx = {
@@ -739,10 +765,11 @@ function render() {
       : `<p class="empty">Données non chargées. <a href="#/settings">Vérifier les réglages</a></p>`;
     return;
   }
-  if (route === "n") {
-    setTab("");
+  if (route === "n" || route === "s") {
     ED = null;
-    renderNutrition($view, S, nutCtx, a || "jour", b);
+    const sub = route === "s" ? (a === "suivi" ? "suivi" : "nuit") : (a || "jour");
+    setSpace(route === "s" ? "sommeil" : "nutrition", sub === "recette" ? "semaine" : sub);
+    renderNutrition($view, S, nutCtx, sub, b);
     return;
   }
   const routes = {
@@ -760,7 +787,7 @@ function render() {
     },
   };
   const [html, tab] = (routes[route] || routes.today)();
-  setTab(tab);
+  setSpace("sport", tab);
   if (route !== "edit") ED = null;
   $view.innerHTML = html;
   if (route === "edit" && ED) bindEditor();
@@ -807,6 +834,9 @@ document.addEventListener("visibilitychange", () => {
 });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+// À l'ouverture, toujours l'espace Sport.
+if (/^#\/(n|s)\//.test(location.hash)) history.replaceState(null, "", "#/today");
 
 render();
 loadAll();

@@ -466,12 +466,13 @@ function bindCorps(view, S, ctx, rerender) {
 
 let sleepForm = null;
 
-function viewSleep(S) {
+function viewSleepForm(S) {
   const N = S.nut;
   sleepForm ??= { date: U.isoDate(), h: null, min: null, score: null, profond_min: null, paradoxal_min: null, eveille_min: null, coucher: "", lever: "", note: "" };
   const f = sleepForm;
-  const recent = [...N.sommeil.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
-  return `<h1>Sommeil</h1>
+  const already = N.sommeil.get(f.date);
+  return `<h1>Cette nuit</h1>
+    ${already ? `<div class="coach">Déjà saisie : ${Math.floor(already.duree_min / 60)}h${U.pad(already.duree_min % 60)}${already.score != null ? ` · score ${already.score}` : ""}. Enregistrer à nouveau la remplace.</div>` : ""}
     <section class="block form">
       <label>Nuit se terminant le<input type="date" data-sf="date" value="${f.date}"></label>
       <div class="two">
@@ -488,10 +489,24 @@ function viewSleep(S) {
       <label>Note<input data-sf="note" value="${U.esc(f.note)}" placeholder="ex. réveillé 2 fois"></label>
       <button class="btn wide" data-act="save-sleep">Enregistrer la nuit</button>
     </section>
+    <p class="meta center">Recopie les données de l'app Sommeil de l'Apple Watch.</p>`;
+}
+
+function viewSleepTrack(S) {
+  const all = [...S.nut.sommeil.values()].sort((a, b) => b.date.localeCompare(a.date));
+  const last7 = all.filter((s) => U.daysBetween(s.date, U.isoDate()) < 7);
+  const avg = last7.length ? last7.reduce((t, s) => t + s.duree_min, 0) / last7.length : null;
+  const sc = last7.filter((s) => s.score != null);
+  return `<h1>Suivi du sommeil</h1>
+    <div class="stats">
+      <div><span>Nuits saisies (7 j)</span><strong>${last7.length}/7</strong></div>
+      <div><span>Durée moyenne</span><strong>${avg != null ? `${Math.floor(avg / 60)}h${U.pad(Math.round(avg % 60))}` : "—"}</strong></div>
+      <div><span>Score moyen</span><strong>${sc.length ? Math.round(sc.reduce((t, s) => t + s.score, 0) / sc.length) : "—"}</strong></div>
+    </div>
     <section class="chartbox"><div class="chart-h"><h3>30 dernières nuits</h3></div><div class="cv"><canvas id="c-sleep"></canvas></div></section>
-    <h2>Dernières nuits</h2>
-    ${recent.map((s) => `<div class="logrow"><span class="d">${U.fmtShort(s.date)}</span>
-      <span class="t">${Math.floor(s.duree_min / 60)}h${U.pad(s.duree_min % 60)}${s.coucher ? ` · ${s.coucher} → ${s.lever || "?"}` : ""}</span>
+    <h2>Historique</h2>
+    ${all.slice(0, 30).map((s) => `<div class="logrow"><span class="d">${U.fmtShort(s.date)}</span>
+      <span class="t">${Math.floor(s.duree_min / 60)}h${U.pad(s.duree_min % 60)}${s.coucher ? ` · ${s.coucher} → ${s.lever || "?"}` : ""}${s.note ? ` · ${U.esc(s.note)}` : ""}</span>
       <span class="r">${s.score != null ? `score ${s.score}` : ""}</span></div>`).join("") || '<p class="empty">Aucune nuit saisie.</p>'}`;
 }
 
@@ -525,7 +540,7 @@ function bindSleep(view, S, ctx, rerender) {
     for (const k of ["score", "profond_min", "paradoxal_min", "eveille_min"]) if (f[k] != null) d[k] = f[k];
     for (const k of ["coucher", "lever", "note"]) if (f[k]) d[k] = f[k];
     const ok = await ctx.save(`nutrition/sommeil/${f.date}.json`, d, `sommeil: ${f.date}`);
-    if (ok) { S.nut.sommeil.set(d.date, d); sleepForm = null; rerender(); }
+    if (ok) { S.nut.sommeil.set(d.date, d); sleepForm = null; location.hash = "#/s/suivi"; }
   };
 }
 
@@ -597,7 +612,8 @@ export function renderNutrition(view, S, ctx, sub, arg) {
     case "recette": view.innerHTML = viewRecipe(S, decodeURIComponent(arg || "")); break;
     case "courses": view.innerHTML = viewCourses(S, lundi); bindCourses(view, S, lundi, rerender); break;
     case "corps": view.innerHTML = viewCorps(S); bindCorps(view, S, ctx, rerender); if (window.Chart) drawCorps(S); break;
-    case "sommeil": view.innerHTML = viewSleep(S); bindSleep(view, S, ctx, rerender); if (window.Chart) drawSleep(S); break;
+    case "nuit": view.innerHTML = viewSleepForm(S); bindSleep(view, S, ctx, rerender); break;
+    case "suivi": view.innerHTML = viewSleepTrack(S); if (window.Chart) drawSleep(S); break;
     case "bilan": view.innerHTML = viewBilan(S); if (window.Chart) drawBilan(S); break;
     default: {
       const iso = arg || U.isoDate();

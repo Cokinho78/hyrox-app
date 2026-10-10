@@ -62,7 +62,7 @@ main {
 
 .tabs {
   flex: none; z-index: 10;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(var(--n, 5), 1fr);
   height: calc(var(--tabs-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   background: rgba(23, 25, 30, 0.96);
@@ -261,6 +261,7 @@ input.num:focus, select.num:focus, .form input:focus, .form textarea:focus { out
 .drawer-h { font: 700 20px "Barlow Condensed", sans-serif; text-transform: uppercase; color: var(--accent); padding: 0 20px 12px; }
 .drawer a { padding: 14px 20px; font-size: 17px; border-bottom: 1px solid var(--line); }
 .drawer a:active { background: var(--surface2); }
+.drawer a.on { color: var(--accent); background: var(--surface2); font-weight: 600; }
 .drawer-sep { height: 18px; }
 
 /* ---- nutrition */

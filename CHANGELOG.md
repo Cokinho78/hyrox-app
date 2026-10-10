@@ -2,6 +2,10 @@
 
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 
+## v2.1 — 2026-10-10
+- 3 espaces : Sport, Nutrition, Sommeil. Le menu ☰ change d'espace, la barre du bas
+  navigue dans l'espace. Ouverture toujours sur Sport.
+
 ## v2.0 — 2026-10-10
 - Volet latéral (☰ en haut à gauche) : Repas du jour, Menu de la semaine, Liste de courses,
   Bilan nutrition, Poids & composition (par balance), Sommeil.

@@ -23,8 +23,8 @@
 <body>
   <header class="top">
     <div class="top-left">
-      <button id="menu" class="icon" aria-label="Nutrition et sommeil">☰</button>
-      <a href="#/today" class="logo">HYROX<span>coach</span></a>
+      <button id="menu" class="icon" aria-label="Changer d'espace">☰</button>
+      <a href="#/today" class="logo">HYROX<span id="space-name">sport</span></a>
     </div>
     <div class="top-actions">
       <button id="refresh" class="icon" aria-label="Synchroniser">⟳</button>
@@ -33,24 +33,16 @@
   </header>
   <div id="status" class="status"></div>
   <main id="view"></main>
-  <nav class="tabs">
-    <a href="#/today" data-tab="today"><span>●</span>Aujourd'hui</a>
-    <a href="#/week" data-tab="week"><span>▦</span>Semaine</a>
-    <a href="#/history" data-tab="history"><span>☰</span>Historique</a>
-    <a href="#/progress" data-tab="progress"><span>↗</span>Progrès</a>
-    <a href="#/goals" data-tab="goals"><span>◎</span>Objectifs</a>
-  </nav>
+  <nav class="tabs"></nav>
   <div id="toast" class="toast"></div>
   <div id="scrim" class="scrim"></div>
-  <aside id="drawer" class="drawer" aria-label="Nutrition et sommeil">
-    <div class="drawer-h">Nutrition & sommeil</div>
-    <a href="#/n/jour">🍽️ Repas du jour</a>
-    <a href="#/n/semaine">📅 Menu de la semaine</a>
-    <a href="#/n/courses">🛒 Liste de courses</a>
-    <a href="#/n/bilan">📊 Bilan nutrition</a>
+  <aside id="drawer" class="drawer" aria-label="Espaces">
+    <div class="drawer-h">Espaces</div>
+    <a href="#/today" data-space="sport">🏋️ Sport</a>
+    <a href="#/n/jour" data-space="nutrition">🥗 Nutrition</a>
+    <a href="#/s/nuit" data-space="sommeil">😴 Sommeil</a>
     <div class="drawer-sep"></div>
-    <a href="#/n/corps">⚖️ Poids & composition</a>
-    <a href="#/n/sommeil">😴 Sommeil</a>
+    <a href="#/settings">⚙︎ Réglages</a>
   </aside>
 </body>
 </html>
