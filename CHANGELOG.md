@@ -2,6 +2,9 @@
 
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 
+## v1.4 — 2026-10-10
+- Temps saisis avec deux roues minutes : secondes (ex. 37:47), précision à la seconde quelle que soit la durée.
+
 ## v1.3 — 2026-10-10
 - Numéro de version affiché en bas des Réglages (pour vérifier la mise à jour).
 

@@ -218,6 +218,9 @@ select.num {
   text-align: center; text-align-last: center;
 }
 select.num.empty { color: #5d636e; }
+.dur { display: flex; align-items: center; gap: 2px; }
+.dur select.num { font-size: 17px; }
+.dur span { color: var(--muted); font-weight: 700; }
 input.num::placeholder { color: #5d636e; }
 input.num:focus, select.num:focus, .form input:focus, .form textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .check {

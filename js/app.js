@@ -4,7 +4,7 @@ import { renderProgress } from "./charts.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v1.3";
+export const APP_VERSION = "v1.4";
 
 const S = {
   cfg: loadConfig(),
@@ -441,23 +441,26 @@ const PICK_VALUES = {
   weight_kg: () => range(0, 300, 0.5),
   speed_kmh: () => range(5, 25, 0.1),
   distance_m: () => DISTANCES,
-  duration_s: () => [...range(1, 1200, 1), ...range(1260, 10800, 60)],
+  // Temps = deux roues (minutes / secondes) : précision à la seconde sur toute durée.
+  dur_min: () => range(0, 240, 1),
+  dur_sec: () => range(0, 59, 1),
 };
-const pickLabel = (m, v) => (m === "duration_s" ? U.fmtDuration(v) : String(v).replace(".", ","));
+const pickLabel = (key, v) => (key === "dur_sec" ? U.pad(v) : String(v).replace(".", ","));
 const optionsCache = {};
-function pickOptions(m) {
-  optionsCache[m] ??= `<option value="">—</option>`
-    + PICK_VALUES[m]().map((v) => `<option value="${v}">${pickLabel(m, v)}</option>`).join("")
-    + `<option value="${OTHER}">Autre…</option>`;
-  return optionsCache[m];
+function pickOptions(key) {
+  optionsCache[key] ??= `<option value="">—</option>`
+    + PICK_VALUES[key]().map((v) => `<option value="${v}">${pickLabel(key, v)}</option>`).join("")
+    + (key.startsWith("dur_") ? "" : `<option value="${OTHER}">Autre…</option>`);
+  return optionsCache[key];
 }
 
 function fillPicker(sel) {
   if (sel.dataset.filled) return;
   const v = sel.dataset.v;
-  sel.innerHTML = pickOptions(sel.dataset.m);
+  const key = sel.dataset.pick || sel.dataset.m;
+  sel.innerHTML = pickOptions(key);
   if (v !== "" && ![...sel.options].some((o) => o.value === v)) {
-    sel.add(new Option(pickLabel(sel.dataset.m, Number(v)), v), sel.options[1]);
+    sel.add(new Option(pickLabel(key, Number(v)), v), sel.options[1]);
   }
   sel.value = v;
   sel.dataset.filled = "1";
@@ -469,7 +472,17 @@ function textInput(m, v) {
     inputmode="decimal" autocomplete="off" enterkeyhint="done">`;
 }
 
+function durationInput(v) {
+  const has = v != null;
+  const mins = has ? Math.floor(v / 60) : "";
+  const secs = has ? Math.round(v % 60) : "";
+  const wheel = (part, val, label) => `<select class="num pick ${has ? "" : "empty"}" data-m="duration_s"
+    data-pick="dur_${part}" data-v="${val}"><option value="${val}" selected>${label}</option></select>`;
+  return `<div class="dur">${wheel("min", mins, has ? mins : "—")}<span>:</span>${wheel("sec", secs, has ? U.pad(secs) : "—")}</div>`;
+}
+
 function setInput(m, s) {
+  if (m === "duration_s") return durationInput(s[m]);
   const v = s[m];
   const label = v == null ? "—" : pickLabel(m, v);
   return `<select class="num pick ${v == null ? "empty" : ""}" data-m="${m}" data-v="${v ?? ""}">
@@ -630,13 +643,22 @@ function bindEditor() {
     } else if (t.dataset.m) {
       if (t.value === OTHER) return; // géré par onchange
       const it = itemAt(t);
-      const si = +t.parentElement.dataset.s;
+      const si = +t.closest("[data-s]").dataset.s;
       const m = t.dataset.m;
-      if (t.tagName === "SELECT") {
+      if (t.dataset.pick?.startsWith("dur_")) {
+        const [minSel, secSel] = t.closest(".dur").querySelectorAll("select");
+        // Première roue touchée : l'autre passe à 0 au lieu de rester vide.
+        for (const other of [minSel, secSel]) {
+          if (other !== t && other.value === "") { fillPicker(other); other.value = "0"; }
+        }
+        const total = minSel.value === "" && secSel.value === "" ? null : (+minSel.value || 0) * 60 + (+secSel.value || 0);
+        it.sets[si][m] = total;
+        [minSel, secSel].forEach((x) => x.classList.toggle("empty", total == null));
+      } else if (t.tagName === "SELECT") {
         it.sets[si][m] = U.parseNum(t.value);
         t.classList.toggle("empty", t.value === "");
       } else {
-        it.sets[si][m] = m === "duration_s" ? U.parseDuration(t.value.replace(/^(\d+)\.(\d+)$/, (_, a, b) => `${a}:${b.padEnd(2, "0")}`)) : U.parseNum(t.value);
+        it.sets[si][m] = m === "duration_s" ? U.parseDuration(t.value.trim().replace(/^(\d+)[.,\s](\d+)$/, (_, a, b) => `${a}:${b.padEnd(2, "0")}`)) : U.parseNum(t.value);
       }
       if (!it.sets[si].done) {
         it.sets[si].done = true;
