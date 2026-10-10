@@ -4,6 +4,8 @@ import { renderProgress } from "./charts.js";
 
 // ---------------------------------------------------------------- état global
 
+export const APP_VERSION = "v1.3";
+
 const S = {
   cfg: loadConfig(),
   store: null,
@@ -371,7 +373,8 @@ function viewSettings() {
       Si tu perds ton téléphone : révoque le token sur GitHub.
     </details>
     <button class="btn ghost wide" id="clearcache">Vider le cache local</button>
-    <p class="meta center">Données : ${U.esc(c.owner)}/${U.esc(c.repo)} · ${S.logs.length} séances chargées</p>`;
+    <p class="meta center">Données : ${U.esc(c.owner)}/${U.esc(c.repo)} · ${S.logs.length} séances chargées</p>
+    <p class="meta center">Version de l'app : <strong>${APP_VERSION}</strong></p>`;
 }
 
 // ---------------------------------------------------------------- saisie

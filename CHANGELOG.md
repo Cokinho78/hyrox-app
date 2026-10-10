@@ -2,6 +2,9 @@
 
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 
+## v1.3 — 2026-10-10
+- Numéro de version affiché en bas des Réglages (pour vérifier la mise à jour).
+
 ## v1.2 — 2026-10-10
 - Saisie par menus déroulants (roue iPhone) : reps 1-100, poids par 0,5 kg,
   temps à la seconde (jusqu'à 20 min) puis à la minute, distances courantes.
