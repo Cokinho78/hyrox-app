@@ -209,12 +209,17 @@ dl.info dd { margin: 0; }
 }
 .setgrid .h { font-size: 11px; color: var(--muted); text-transform: uppercase; text-align: center; }
 .setgrid .idx { color: var(--muted); font-size: 14px; text-align: center; }
-input.num {
+input.num, select.num {
   width: 100%; height: 46px; text-align: center; font: 600 18px "Barlow", sans-serif;
   color: var(--text); background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
 }
+select.num {
+  -webkit-appearance: none; appearance: none; padding: 0 2px;
+  text-align: center; text-align-last: center;
+}
+select.num.empty { color: #5d636e; }
 input.num::placeholder { color: #5d636e; }
-input.num:focus, .form input:focus, .form textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+input.num:focus, select.num:focus, .form input:focus, .form textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .check {
   height: 46px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2);
   color: #5d636e; font-size: 20px; font-weight: 700; cursor: pointer;

@@ -427,12 +427,50 @@ function saveDraft() {
   } catch { /* ignore */ }
 }
 
+// Saisie par menus déroulants (roue iOS). Les options ne sont générées qu'au
+// premier toucher pour garder une page légère. "Autre…" bascule en saisie clavier.
+const OTHER = "__autre";
+const DISTANCES = [10, 20, 25, 30, 40, 50, 60, 75, 80, 100, 120, 150, 200, 250, 300, 400, 500,
+  600, 750, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 21100];
+const range = (a, b, step) => Array.from({ length: Math.round((b - a) / step) + 1 }, (_, i) => Math.round((a + i * step) * 10) / 10);
+const PICK_VALUES = {
+  reps: () => range(1, 100, 1),
+  weight_kg: () => range(0, 300, 0.5),
+  speed_kmh: () => range(5, 25, 0.1),
+  distance_m: () => DISTANCES,
+  duration_s: () => [...range(1, 1200, 1), ...range(1260, 10800, 60)],
+};
+const pickLabel = (m, v) => (m === "duration_s" ? U.fmtDuration(v) : String(v).replace(".", ","));
+const optionsCache = {};
+function pickOptions(m) {
+  optionsCache[m] ??= `<option value="">—</option>`
+    + PICK_VALUES[m]().map((v) => `<option value="${v}">${pickLabel(m, v)}</option>`).join("")
+    + `<option value="${OTHER}">Autre…</option>`;
+  return optionsCache[m];
+}
+
+function fillPicker(sel) {
+  if (sel.dataset.filled) return;
+  const v = sel.dataset.v;
+  sel.innerHTML = pickOptions(sel.dataset.m);
+  if (v !== "" && ![...sel.options].some((o) => o.value === v)) {
+    sel.add(new Option(pickLabel(sel.dataset.m, Number(v)), v), sel.options[1]);
+  }
+  sel.value = v;
+  sel.dataset.filled = "1";
+}
+
+function textInput(m, v) {
+  const val = m === "duration_s" ? U.fmtDuration(v) : (v ?? "");
+  return `<input class="num" data-m="${m}" value="${U.esc(val)}" placeholder="${m === "duration_s" ? "mm:ss" : ""}"
+    inputmode="decimal" autocomplete="off" enterkeyhint="done">`;
+}
+
 function setInput(m, s) {
   const v = s[m];
-  const val = m === "duration_s" ? U.fmtDuration(v) : (v ?? "");
-  const ph = s.plan?.[m] != null ? (m === "duration_s" ? U.fmtDuration(s.plan[m]) : s.plan[m]) : (m === "duration_s" ? "mm:ss" : "");
-  return `<input class="num" data-m="${m}" value="${U.esc(val)}" placeholder="${U.esc(ph)}"
-    inputmode="decimal" autocomplete="off" enterkeyhint="next">`;
+  const label = v == null ? "—" : pickLabel(m, v);
+  return `<select class="num pick ${v == null ? "empty" : ""}" data-m="${m}" data-v="${v ?? ""}">
+    <option value="${v ?? ""}" selected>${label}</option></select>`;
 }
 
 function viewEditor() {
@@ -487,7 +525,7 @@ function viewEditor() {
         <label>Type<select data-field="type">${typeOpts}</select></label>
       </div>
     </div>
-    <p class="meta">Les valeurs prévues sont pré-remplies : coche ✓ si c'est fait, modifie seulement ce qui diffère. Temps : « 4:30 » ou « 4.30 ».</p>
+    <p class="meta">Les valeurs prévues sont pré-remplies : coche ✓ si c'est fait, touche une valeur pour la changer (« Autre… » en bas du menu pour la taper au clavier).</p>
     ${blocks}
     <section class="block form">
       <h4>Bilan</h4>
@@ -587,10 +625,16 @@ function bindEditor() {
       const numeric = ["duration_min", "hr_avg", "hr_max"].includes(f);
       ED.log[f] = numeric ? U.parseNum(t.value) : t.value;
     } else if (t.dataset.m) {
+      if (t.value === OTHER) return; // géré par onchange
       const it = itemAt(t);
       const si = +t.parentElement.dataset.s;
       const m = t.dataset.m;
-      it.sets[si][m] = m === "duration_s" ? U.parseDuration(t.value.replace(/^(\d+)\.(\d+)$/, (_, a, b) => `${a}:${b.padEnd(2, "0")}`)) : U.parseNum(t.value);
+      if (t.tagName === "SELECT") {
+        it.sets[si][m] = U.parseNum(t.value);
+        t.classList.toggle("empty", t.value === "");
+      } else {
+        it.sets[si][m] = m === "duration_s" ? U.parseDuration(t.value.replace(/^(\d+)\.(\d+)$/, (_, a, b) => `${a}:${b.padEnd(2, "0")}`)) : U.parseNum(t.value);
+      }
       if (!it.sets[si].done) {
         it.sets[si].done = true;
         t.closest(".setgrid").querySelector(`.check[data-s="${si}"]`)?.classList.add("on");
@@ -598,8 +642,20 @@ function bindEditor() {
     }
     saveDraft();
   };
+  // Remplit le menu juste avant que la roue s'ouvre (pointerdown précède l'ouverture sur iOS).
+  $view.onpointerdown = $view.onfocusin = (e) => {
+    if (e.target.classList?.contains("pick")) fillPicker(e.target);
+  };
   $view.onchange = (e) => {
     const t = e.target;
+    if (t.classList.contains("pick") && t.value === OTHER) {
+      const cell = t.parentElement;
+      cell.innerHTML = textInput(t.dataset.m, itemAt(cell)?.sets[+cell.dataset.s][t.dataset.m]);
+      const inp = cell.querySelector("input");
+      inp.focus();
+      inp.select();
+      return;
+    }
     if (t.classList.contains("add-ex") && t.value) {
       const ex = S.ex.get(t.value);
       ED.log.blocks[+t.dataset.b].items.push({ exercise: ex.id, sets: [{ done: false }] });
@@ -617,8 +673,9 @@ function bindEditor() {
       const s = it.sets[+b.dataset.s];
       s.done = !s.done;
       // Valider une série vide = reprendre les valeurs prévues.
-      if (s.done && s.plan) for (const [k, v] of Object.entries(s.plan)) if (s[k] == null) s[k] = v;
-      b.classList.toggle("on", s.done);
+      let filled = false;
+      if (s.done && s.plan) for (const [k, v] of Object.entries(s.plan)) if (s[k] == null) { s[k] = v; filled = true; }
+      if (filled) rerenderEditor(); else b.classList.toggle("on", s.done);
     } else if (act === "all-done") {
       const target = !it.sets.every((s) => s.done);
       it.sets.forEach((s) => {
@@ -676,7 +733,7 @@ function setTab(name) {
 
 function render() {
   const [, route = "today", a, b] = location.hash.split("/");
-  $view.oninput = $view.onchange = $view.onclick = null;
+  $view.oninput = $view.onchange = $view.onclick = $view.onpointerdown = $view.onfocusin = null;
   if (route === "settings") {
     setTab("");
     $view.innerHTML = viewSettings();
