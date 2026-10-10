@@ -663,9 +663,9 @@ function bindEditor() {
 }
 
 function rerenderEditor() {
-  const y = window.scrollY;
+  const y = $view.scrollTop;
   $view.innerHTML = viewEditor();
-  window.scrollTo(0, y);
+  $view.scrollTop = y;
 }
 
 // ---------------------------------------------------------------- routeur
@@ -734,7 +734,7 @@ function bindSettings() {
 
 window.addEventListener("hashchange", () => {
   render();
-  if (!location.hash.startsWith("#/edit")) window.scrollTo(0, 0);
+  if (!location.hash.startsWith("#/edit")) $view.scrollTop = 0;
 });
 document.getElementById("refresh").onclick = () => loadAll();
 document.addEventListener("visibilitychange", () => {
