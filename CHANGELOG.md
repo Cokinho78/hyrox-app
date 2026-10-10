@@ -2,6 +2,10 @@
 
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 
+## v2.0 — 2026-10-10
+- Volet latéral (☰ en haut à gauche) : Repas du jour, Menu de la semaine, Liste de courses,
+  Bilan nutrition, Poids & composition (par balance), Sommeil.
+
 ## v1.4 — 2026-10-10
 - Temps saisis avec deux roues minutes : secondes (ex. 37:47), précision à la seconde quelle que soit la durée.
 

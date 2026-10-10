@@ -22,7 +22,10 @@
 </head>
 <body>
   <header class="top">
-    <a href="#/today" class="logo">HYROX<span>coach</span></a>
+    <div class="top-left">
+      <button id="menu" class="icon" aria-label="Nutrition et sommeil">☰</button>
+      <a href="#/today" class="logo">HYROX<span>coach</span></a>
+    </div>
     <div class="top-actions">
       <button id="refresh" class="icon" aria-label="Synchroniser">⟳</button>
       <a href="#/settings" class="icon" aria-label="Réglages">⚙︎</a>
@@ -38,5 +41,16 @@
     <a href="#/goals" data-tab="goals"><span>◎</span>Objectifs</a>
   </nav>
   <div id="toast" class="toast"></div>
+  <div id="scrim" class="scrim"></div>
+  <aside id="drawer" class="drawer" aria-label="Nutrition et sommeil">
+    <div class="drawer-h">Nutrition & sommeil</div>
+    <a href="#/n/jour">🍽️ Repas du jour</a>
+    <a href="#/n/semaine">📅 Menu de la semaine</a>
+    <a href="#/n/courses">🛒 Liste de courses</a>
+    <a href="#/n/bilan">📊 Bilan nutrition</a>
+    <div class="drawer-sep"></div>
+    <a href="#/n/corps">⚖️ Poids & composition</a>
+    <a href="#/n/sommeil">😴 Sommeil</a>
+  </aside>
 </body>
 </html>

@@ -1,10 +1,12 @@
 import { Store, StoreError, loadConfig, saveConfig, clearCache } from "./store.js";
 import * as U from "./util.js";
 import { renderProgress } from "./charts.js";
+import { OTHER, fillPicker, pickLabel, textInput, durationInput } from "./pickers.js";
+import { ingestNutrition, renderNutrition } from "./nutrition.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v1.4";
+export const APP_VERSION = "v2.0";
 
 const S = {
   cfg: loadConfig(),
@@ -53,7 +55,9 @@ async function loadAll({ silent = false } = {}) {
     const files = await S.store.listFiles();
     const core = ["catalogue/exercices.json", "plan/plan.json", "profil/athlete.json", "profil/objectifs.json"];
     const logFiles = files.filter((p) => p.startsWith("logs/") && p.endsWith(".json"));
-    const data = await S.store.readMany([...core, ...logFiles]);
+    const nutFiles = files.filter((p) => p.startsWith("nutrition/") && p.endsWith(".json"));
+    const data = await S.store.readMany([...core, ...logFiles, ...nutFiles]);
+    ingestNutrition(S, data, nutFiles);
 
     S.cat = data.get(core[0]) || S.cat;
     S.ex = new Map(S.cat.exercices.map((e) => [e.id, e]));
@@ -430,57 +434,6 @@ function saveDraft() {
   } catch { /* ignore */ }
 }
 
-// Saisie par menus déroulants (roue iOS). Les options ne sont générées qu'au
-// premier toucher pour garder une page légère. "Autre…" bascule en saisie clavier.
-const OTHER = "__autre";
-const DISTANCES = [10, 20, 25, 30, 40, 50, 60, 75, 80, 100, 120, 150, 200, 250, 300, 400, 500,
-  600, 750, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 21100];
-const range = (a, b, step) => Array.from({ length: Math.round((b - a) / step) + 1 }, (_, i) => Math.round((a + i * step) * 10) / 10);
-const PICK_VALUES = {
-  reps: () => range(1, 100, 1),
-  weight_kg: () => range(0, 300, 0.5),
-  speed_kmh: () => range(5, 25, 0.1),
-  distance_m: () => DISTANCES,
-  // Temps = deux roues (minutes / secondes) : précision à la seconde sur toute durée.
-  dur_min: () => range(0, 240, 1),
-  dur_sec: () => range(0, 59, 1),
-};
-const pickLabel = (key, v) => (key === "dur_sec" ? U.pad(v) : String(v).replace(".", ","));
-const optionsCache = {};
-function pickOptions(key) {
-  optionsCache[key] ??= `<option value="">—</option>`
-    + PICK_VALUES[key]().map((v) => `<option value="${v}">${pickLabel(key, v)}</option>`).join("")
-    + (key.startsWith("dur_") ? "" : `<option value="${OTHER}">Autre…</option>`);
-  return optionsCache[key];
-}
-
-function fillPicker(sel) {
-  if (sel.dataset.filled) return;
-  const v = sel.dataset.v;
-  const key = sel.dataset.pick || sel.dataset.m;
-  sel.innerHTML = pickOptions(key);
-  if (v !== "" && ![...sel.options].some((o) => o.value === v)) {
-    sel.add(new Option(pickLabel(key, Number(v)), v), sel.options[1]);
-  }
-  sel.value = v;
-  sel.dataset.filled = "1";
-}
-
-function textInput(m, v) {
-  const val = m === "duration_s" ? U.fmtDuration(v) : (v ?? "");
-  return `<input class="num" data-m="${m}" value="${U.esc(val)}" placeholder="${m === "duration_s" ? "mm:ss" : ""}"
-    inputmode="decimal" autocomplete="off" enterkeyhint="done">`;
-}
-
-function durationInput(v) {
-  const has = v != null;
-  const mins = has ? Math.floor(v / 60) : "";
-  const secs = has ? Math.round(v % 60) : "";
-  const wheel = (part, val, label) => `<select class="num pick ${has ? "" : "empty"}" data-m="duration_s"
-    data-pick="dur_${part}" data-v="${val}"><option value="${val}" selected>${label}</option></select>`;
-  return `<div class="dur">${wheel("min", mins, has ? mins : "—")}<span>:</span>${wheel("sec", secs, has ? U.pad(secs) : "—")}</div>`;
-}
-
 function setInput(m, s) {
   if (m === "duration_s") return durationInput(s[m]);
   const v = s[m];
@@ -667,10 +620,6 @@ function bindEditor() {
     }
     saveDraft();
   };
-  // Remplit le menu juste avant que la roue s'ouvre (pointerdown précède l'ouverture sur iOS).
-  $view.onpointerdown = $view.onfocusin = (e) => {
-    if (e.target.classList?.contains("pick")) fillPicker(e.target);
-  };
   $view.onchange = (e) => {
     const t = e.target;
     if (t.classList.contains("pick") && t.value === OTHER) {
@@ -756,9 +705,29 @@ function setTab(name) {
   document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === name));
 }
 
+// Enregistrement générique pour le volet nutrition (retourne true si OK).
+const nutCtx = {
+  toast,
+  async save(path, obj, message) {
+    try {
+      await S.store.writeJSON(path, obj, message);
+      toast("✅ Enregistré");
+      return true;
+    } catch (e) {
+      toast(`${e instanceof StoreError ? e.message : "Pas de réseau"} — réessaie plus tard`, true);
+      return false;
+    }
+  },
+};
+
 function render() {
   const [, route = "today", a, b] = location.hash.split("/");
-  $view.oninput = $view.onchange = $view.onclick = $view.onpointerdown = $view.onfocusin = null;
+  closeDrawer();
+  $view.oninput = $view.onchange = $view.onclick = null;
+  // Remplit les menus déroulants juste avant que la roue s'ouvre (pointerdown précède l'ouverture sur iOS).
+  $view.onpointerdown = $view.onfocusin = (e) => {
+    if (e.target.classList?.contains("pick")) fillPicker(e.target);
+  };
   if (route === "settings") {
     setTab("");
     $view.innerHTML = viewSettings();
@@ -768,6 +737,12 @@ function render() {
   if (!S.loadedAt) {
     $view.innerHTML = S.loading ? `<p class="empty">Chargement…</p>`
       : `<p class="empty">Données non chargées. <a href="#/settings">Vérifier les réglages</a></p>`;
+    return;
+  }
+  if (route === "n") {
+    setTab("");
+    ED = null;
+    renderNutrition($view, S, nutCtx, a || "jour", b);
     return;
   }
   const routes = {
@@ -819,6 +794,13 @@ window.addEventListener("hashchange", () => {
   if (!location.hash.startsWith("#/edit")) $view.scrollTop = 0;
 });
 document.getElementById("refresh").onclick = () => loadAll();
+
+// ---------------------------------------------------------------- volet latéral
+const $drawer = document.getElementById("drawer");
+function closeDrawer() { document.body.classList.remove("drawer-open"); }
+document.getElementById("menu").onclick = () => document.body.classList.toggle("drawer-open");
+document.getElementById("scrim").onclick = closeDrawer;
+$drawer.onclick = (e) => { if (e.target.closest("a")) closeDrawer(); };
 document.addEventListener("visibilitychange", () => {
   // Retour dans l'app après >2 min : on resynchronise (le coach a pu modifier le plan).
   if (document.visibilityState === "visible" && Date.now() - S.loadedAt > 120000 && !ED) loadAll({ silent: true });

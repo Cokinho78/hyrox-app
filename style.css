@@ -246,3 +246,47 @@ input.num:focus, select.num:focus, .form input:focus, .form textarea:focus { out
 .chart-h h3 { font-size: 17px; }
 .chart-h select { background: var(--surface2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px; font: 14px "Barlow", sans-serif; max-width: 55%; }
 .cv { position: relative; height: 220px; }
+
+/* ---- volet latéral */
+.top-left { display: flex; align-items: center; gap: 10px; }
+.scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.55); opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 41; width: min(80vw, 300px);
+  padding: calc(env(safe-area-inset-top) + 18px) 0 env(safe-area-inset-bottom);
+  background: var(--surface); border-right: 1px solid var(--line);
+  transform: translateX(-102%); transition: transform 0.22s ease; display: flex; flex-direction: column;
+}
+.drawer-open .drawer { transform: none; }
+.drawer-open .scrim { opacity: 1; pointer-events: auto; }
+.drawer-h { font: 700 20px "Barlow Condensed", sans-serif; text-transform: uppercase; color: var(--accent); padding: 0 20px 12px; }
+.drawer a { padding: 14px 20px; font-size: 17px; border-bottom: 1px solid var(--line); }
+.drawer a:active { background: var(--surface2); }
+.drawer-sep { height: 18px; }
+
+/* ---- nutrition */
+.mbars { display: grid; gap: 8px; margin: 10px 0 4px; }
+.mbar-h { display: flex; justify-content: space-between; font-size: 14px; }
+.mbar-t { height: 8px; background: var(--surface2); border-radius: 99px; overflow: hidden; margin-top: 3px; }
+.mbar-f { height: 100%; background: var(--accent2); border-radius: 99px; }
+.mbar-f.over { background: var(--warn); }
+.meal-h { display: flex; justify-content: space-between; align-items: baseline; }
+.meal.prevu, .meal.modifie { border-color: #2f6b47; }
+.meal.saute { opacity: 0.6; }
+.nitem { padding: 8px 0; border-top: 1px solid var(--line); }
+.nitem-h { display: flex; align-items: center; gap: 8px; }
+.nitem-h > span:first-child { flex: 1; font-weight: 600; }
+.nitem-c { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.nitem-c select.num { width: 96px; height: 40px; font-size: 16px; }
+.nitem-c .unit { color: var(--muted); font-size: 14px; }
+.nitem-c select.fc, .nitem-c input.lbl { flex: 1; min-width: 0; padding: 10px; font: 15px "Barlow", sans-serif; color: var(--text); background: var(--surface2); border: 1px solid var(--line); border-radius: 10px; }
+.libre { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; }
+.libre label { font-size: 11px; color: var(--muted); text-align: center; }
+.libre select.num { width: 100%; height: 40px; font-size: 15px; margin-top: 2px; }
+.icon.small { width: 30px; height: 30px; font-size: 14px; }
+.form label > select.num, .form label > .dur { margin-top: 4px; }
+.form .dur select.num { flex: 1; }
+.todo-row { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.todo-row input { width: 22px; height: 22px; accent-color: var(--ok); }
+.todo-row.done span:nth-child(2) { text-decoration: line-through; color: var(--muted); }
+.steps { padding-left: 20px; margin: 0; }
+.steps li { margin-bottom: 8px; }
