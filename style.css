@@ -291,3 +291,10 @@ input.num:focus, select.num:focus, .form input:focus, .form textarea:focus { out
 .todo-row.done span:nth-child(2) { text-decoration: line-through; color: var(--muted); }
 .steps { padding-left: 20px; margin: 0; }
 .steps li { margin-bottom: 8px; }
+
+.card.sleep .big-line { font: 700 24px "Barlow Condensed", sans-serif; margin: 6px 0 4px; }
+.card.sleep .big-line .meta { font: 400 14px "Barlow", sans-serif; }
+.phases-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.phases-row span { background: var(--surface2); border-radius: 8px; padding: 6px; text-align: center; font-size: 14px; font-weight: 600; }
+.phases-row em { display: block; font-style: normal; font-size: 11px; color: var(--muted); font-weight: 400; }
+.nitem-h .meta { font-size: 12px; white-space: nowrap; }

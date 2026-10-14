@@ -7,8 +7,9 @@ import { picker } from "./pickers.js";
 const MACROS = ["kcal", "p", "g", "l"];
 const MACRO_LABEL = { kcal: "kcal", p: "Protéines", g: "Glucides", l: "Lipides" };
 const SLOTS = [["petit_dej", "Petit-déj"], ["dejeuner", "Déjeuner"], ["collation", "Collation"], ["diner", "Dîner"]];
-export const BALANCES = [["technogym", "Technogym (salle)"], ["travail", "Balance salle du travail"],
+export const BALANCES = [["technogym", "Technogym (salle)"], ["inbody", "InBody (salle du travail)"],
   ["withings", "Withings (Amarine)"], ["autre", "Autre"]];
+const balanceLabel = (id) => BALANCES.find(([b]) => b === id)?.[1] || id;
 const TRAINING_TYPES = new Set(["muscu", "hyrox", "course", "test", "course_officielle"]);
 const charts = [];
 
@@ -108,6 +109,7 @@ function bars(m, cible) {
   }).join("")}</div>`;
 }
 
+const macroLine = (m) => `${Math.round(m.kcal)} kcal · P ${Math.round(m.p)} · G ${Math.round(m.g)} · L ${Math.round(m.l)}`;
 const fmtM = (m) => `${Math.round(m.kcal)} kcal · P ${Math.round(m.p)} g`;
 
 function weekNav(base, lundi, label) {
@@ -172,7 +174,7 @@ function itemEditor(N, it, si, ii) {
   }
   return `<div class="nitem">
     <div class="nitem-h"><span>${U.esc(itemLabel(N, it))}</span>
-      <span class="meta">${Math.round(itemMacros(N, it).kcal)} kcal</span>
+      <span class="meta">${macroLine(itemMacros(N, it))}</span>
       <button class="icon small" data-act="del" data-slot="${si}" data-item="${ii}">✕</button></div>
     <div class="nitem-c">${ctrl}</div></div>`;
 }
@@ -212,7 +214,7 @@ function viewDay(S, iso) {
       const label = SLOTS.find(([s]) => s === rep.slot)?.[1] || rep.slot;
       const m = rep.items.reduce((t, it) => add(t, itemMacros(N, it)), zero());
       return `<section class="block meal ${rep.statut || "todo"}">
-        <div class="meal-h"><h4>${label}</h4><span class="meta">${rep.items.length ? fmtM(m) : ""}</span></div>
+        <div class="meal-h"><h4>${label}</h4><span class="meta">${rep.items.length ? macroLine(m) : ""}</span></div>
         ${rep.items.map((it, ii) => itemEditor(N, it, si, ii)).join("") || '<p class="meta">Rien de prévu.</p>'}
         ${addSelect(N, si)}
         <div class="chips">
@@ -412,7 +414,7 @@ function viewCorps(S) {
     <h2>Dernières pesées</h2>
     ${recent.map((m) => `<div class="logrow"><span class="d">${U.fmtShort(m.date)}</span>
       <span class="t">${fr(m.poids_kg)} kg${m.gras_pct ? ` · ${fr(m.gras_pct)} %` : ""}${m.muscle_kg ? ` · ${fr(m.muscle_kg)} kg muscle` : ""}</span>
-      <span class="r">${U.esc(BALANCES.find(([id]) => id === m.balance)?.[1] || m.balance)}</span></div>`).join("") || '<p class="empty">Aucune pesée.</p>'}`;
+      <span class="r">${U.esc(balanceLabel(m.balance))}</span></div>`).join("") || '<p class="empty">Aucune pesée.</p>'}`;
 }
 
 function drawCorps(S) {
@@ -420,7 +422,7 @@ function drawCorps(S) {
   const pts = N.corps;
   charts.push(new Chart(document.getElementById("c-poids"), {
     type: "line",
-    data: { labels: pts.map((m) => U.fmtShort(m.date)), datasets: [{ data: pts.map((m) => m.poids_kg), borderColor: css("--accent"), tension: 0.25 }] },
+    data: { labels: pts.map((m) => U.fmtShort(m.date)), datasets: [{ label: "Poids (kg)", data: pts.map((m) => m.poids_kg), borderColor: css("--accent"), backgroundColor: css("--accent"), tension: 0.25, pointRadius: 5 }] },
     options: chartOpts(),
   }));
   const dates = [...new Set(pts.filter((m) => m.gras_pct).map((m) => m.date))];
@@ -429,10 +431,12 @@ function drawCorps(S) {
     type: "line",
     data: {
       labels: dates.map(U.fmtShort),
-      datasets: BALANCES.map(([id, lab], i) => ({
-        label: lab, borderColor: palette[i], backgroundColor: palette[i], spanGaps: true, tension: 0.25,
+      // Une courbe par balance présente dans les données (y compris une balance inconnue de l'app).
+      datasets: [...new Set(pts.filter((m) => m.gras_pct).map((m) => m.balance))].map((id, i) => ({
+        label: balanceLabel(id), borderColor: palette[i % palette.length], backgroundColor: palette[i % palette.length],
+        spanGaps: true, tension: 0.25, pointRadius: 5,
         data: dates.map((d) => pts.find((m) => m.date === d && m.balance === id)?.gras_pct ?? null),
-      })).filter((ds) => ds.data.some((v) => v != null)),
+      })),
     },
     options: chartOpts({ legend: true }),
   }));
@@ -468,7 +472,7 @@ let sleepForm = null;
 
 function viewSleepForm(S) {
   const N = S.nut;
-  sleepForm ??= { date: U.isoDate(), h: null, min: null, score: null, profond_min: null, paradoxal_min: null, eveille_min: null, coucher: "", lever: "", note: "" };
+  sleepForm ??= { date: U.isoDate(), h: null, min: null, score: null, profond: null, paradoxal: null, lent: null, eveil: null, coucher: "", lever: "", note: "" };
   const f = sleepForm;
   const already = N.sommeil.get(f.date);
   return `<h1>Cette nuit</h1>
@@ -479,10 +483,11 @@ function viewSleepForm(S) {
         <label>Durée de sommeil<div class="dur">${picker("heures", f.h, { sf: "h" })}<span>h</span>${picker("dur_sec", f.min, { sf: "min" })}</div></label>
         <label>Score${picker("score", f.score, { sf: "score" })}</label>
       </div>
-      <div class="three">
-        <label>Profond (min)${picker("minutes_phase", f.profond_min, { sf: "profond_min" })}</label>
-        <label>Paradoxal (min)${picker("minutes_phase", f.paradoxal_min, { sf: "paradoxal_min" })}</label>
-        <label>Éveillé (min)${picker("minutes_phase", f.eveille_min, { sf: "eveille_min" })}</label>
+      <div class="two">
+        <label>Profond (min)${picker("minutes_phase", f.profond, { sf: "profond" })}</label>
+        <label>Paradoxal (min)${picker("minutes_phase", f.paradoxal, { sf: "paradoxal" })}</label>
+        <label>Lent / core (min)${picker("minutes_phase", f.lent, { sf: "lent" })}</label>
+        <label>Éveillé (min)${picker("minutes_phase", f.eveil, { sf: "eveil" })}</label>
       </div>
       <div class="two"><label>Coucher<input type="time" data-sf="coucher" value="${f.coucher}"></label>
         <label>Lever<input type="time" data-sf="lever" value="${f.lever}"></label></div>
@@ -490,6 +495,21 @@ function viewSleepForm(S) {
       <button class="btn wide" data-act="save-sleep">Enregistrer la nuit</button>
     </section>
     <p class="meta center">Recopie les données de l'app Sommeil de l'Apple Watch.</p>`;
+}
+
+const PHASES = [["profond", "Profond"], ["paradoxal", "Paradoxal"], ["lent", "Lent"], ["eveil", "Éveil"]];
+
+function sleepCard(s) {
+  const ph = s.phases_min || {};
+  return `<div class="card sleep">
+    <div class="row"><strong>${U.fmtDay(s.date, true)}</strong>
+      ${s.score != null ? `<span class="badge ${s.score >= 80 ? "t-foot" : s.score >= 60 ? "t-muscu" : "t-test"}">score ${s.score}</span>` : ""}</div>
+    <p class="big-line">${Math.floor(s.duree_min / 60)}h${U.pad(s.duree_min % 60)}
+      ${s.coucher ? `<span class="meta">· couché ${s.coucher}${s.lever ? ` → levé ${s.lever}` : ""}</span>` : ""}</p>
+    ${Object.keys(ph).length ? `<div class="phases-row">${PHASES.filter(([k]) => ph[k] != null)
+      .map(([k, lab]) => `<span><em>${lab}</em>${ph[k]} min</span>`).join("")}</div>` : ""}
+    ${s.note ? `<p class="meta">${U.esc(s.note)}</p>` : ""}
+  </div>`;
 }
 
 function viewSleepTrack(S) {
@@ -503,15 +523,13 @@ function viewSleepTrack(S) {
       <div><span>Durée moyenne</span><strong>${avg != null ? `${Math.floor(avg / 60)}h${U.pad(Math.round(avg % 60))}` : "—"}</strong></div>
       <div><span>Score moyen</span><strong>${sc.length ? Math.round(sc.reduce((t, s) => t + s.score, 0) / sc.length) : "—"}</strong></div>
     </div>
-    <section class="chartbox"><div class="chart-h"><h3>30 dernières nuits</h3></div><div class="cv"><canvas id="c-sleep"></canvas></div></section>
+    <section class="chartbox"><div class="chart-h"><h3>14 dernières nuits</h3></div><div class="cv"><canvas id="c-sleep"></canvas></div></section>
     <h2>Historique</h2>
-    ${all.slice(0, 30).map((s) => `<div class="logrow"><span class="d">${U.fmtShort(s.date)}</span>
-      <span class="t">${Math.floor(s.duree_min / 60)}h${U.pad(s.duree_min % 60)}${s.coucher ? ` · ${s.coucher} → ${s.lever || "?"}` : ""}${s.note ? ` · ${U.esc(s.note)}` : ""}</span>
-      <span class="r">${s.score != null ? `score ${s.score}` : ""}</span></div>`).join("") || '<p class="empty">Aucune nuit saisie.</p>'}`;
+    ${all.slice(0, 30).map(sleepCard).join("") || '<p class="empty">Aucune nuit saisie.</p>'}`;
 }
 
 function drawSleep(S) {
-  const days = Array.from({ length: 30 }, (_, i) => U.addDays(U.isoDate(), i - 29));
+  const days = Array.from({ length: 14 }, (_, i) => U.addDays(U.isoDate(), i - 13));
   const n = days.map((d) => S.nut.sommeil.get(d));
   charts.push(new Chart(document.getElementById("c-sleep"), {
     data: {
@@ -537,7 +555,9 @@ function bindSleep(view, S, ctx, rerender) {
     const f = sleepForm;
     if (f.h == null && f.min == null) return ctx.toast("Indique au moins la durée", true);
     const d = { date: f.date, duree_min: (f.h || 0) * 60 + (f.min || 0), source: "app" };
-    for (const k of ["score", "profond_min", "paradoxal_min", "eveille_min"]) if (f[k] != null) d[k] = f[k];
+    if (f.score != null) d.score = f.score;
+    const ph = Object.fromEntries(["eveil", "paradoxal", "lent", "profond"].filter((k) => f[k] != null).map((k) => [k, f[k]]));
+    if (Object.keys(ph).length) d.phases_min = ph;
     for (const k of ["coucher", "lever", "note"]) if (f[k]) d[k] = f[k];
     const ok = await ctx.save(`nutrition/sommeil/${f.date}.json`, d, `sommeil: ${f.date}`);
     if (ok) { S.nut.sommeil.set(d.date, d); sleepForm = null; location.hash = "#/s/suivi"; }
@@ -593,6 +613,7 @@ function chartOpts({ legend = false, y1 = false } = {}) {
   const grid = css("--line");
   return {
     responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: "index", intersect: false },
     plugins: { legend: { display: legend, labels: { color: txt, boxWidth: 12 } } },
     scales: {
       x: { ticks: { color: txt, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 }, grid: { color: grid } },

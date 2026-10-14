@@ -72,6 +72,7 @@ function baseOptions(extra = {}) {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
+    interaction: { mode: "index", intersect: false },
     plugins: { legend: { labels: { color: txt, boxWidth: 12 } }, ...extra.plugins },
     scales: {
       x: { ticks: { color: txt, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 }, grid: { color: grid } },

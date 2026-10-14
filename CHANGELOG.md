@@ -2,6 +2,12 @@
 
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 
+## v2.2 — 2026-10-14
+- Repas du jour : protéines / glucides / lipides affichés pour chaque plat.
+- Graphiques : toucher n'importe où dans une colonne affiche les valeurs.
+- Sommeil : historique détaillé (score, phases, coucher/lever), graphique sur 14 nuits, phase « lent ».
+- Poids : balance InBody (salle du travail) ; % de gras affiché pour toute balance présente.
+
 ## v2.1 — 2026-10-10
 - 3 espaces : Sport, Nutrition, Sommeil. Le menu ☰ change d'espace, la barre du bas
   navigue dans l'espace. Ouverture toujours sur Sport.
