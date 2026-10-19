@@ -1,18 +1,19 @@
 # Versions
 
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
+Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v2.4 — 2026-10-19
+## v2.4 — 2026-10-19 · commit 98941e2
 - Vue ordinateur : projection des semaines à venir (`plan/projection.json`, écrit par le coach),
   en pointillés et marquée « non validée ». Une semaine projetée disparaît dès que le vrai programme
   de la semaine est écrit. Volume hebdo prolongé jusqu'à la course en hachuré.
 
-## v2.3 — 2026-10-19
+## v2.3 — 2026-10-19 · commit 2b7d101
 - Vue ordinateur `desktop.html` (lecture seule) : Saison › Mois › Semaine › Séance, plus Analyses.
   Croise séances, sommeil et nutrition ; même token que l'app (à saisir une fois par navigateur).
 - Réglages : lien vers la vue ordinateur.
 
-## v2.2 — 2026-10-14
+## v2.2 — 2026-10-14 · commit 846f223
 - Repas du jour : protéines / glucides / lipides affichés pour chaque plat.
 - Graphiques : toucher n'importe où dans une colonne affiche les valeurs.
 - Sommeil : historique détaillé (score, phases, coucher/lever), graphique sur 14 nuits, phase « lent ».
