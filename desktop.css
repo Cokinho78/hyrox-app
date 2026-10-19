@@ -159,6 +159,8 @@ a.list-item:hover { color: var(--text); outline: 1px solid var(--accent); }
 .chip.race { background: rgba(245, 228, 0, 0.16); border-color: var(--accent); }
 .chip .t { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; line-height: 1.2; }
 .chip .t span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip.proj { background: transparent; border: 1px dotted #5b6170; opacity: 0.75; cursor: help; }
+.chip.proj:hover { border-color: #5b6170; color: inherit; }
 .chip.saute .t { text-decoration: line-through; color: var(--muted); }
 .chip .m { font-size: 11px; color: var(--muted); padding-left: 14px; }
 .day .foot { margin-top: auto; display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
@@ -175,6 +177,11 @@ a.list-item:hover { color: var(--text); outline: 1px solid var(--accent); }
 .scard { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-height: 100px; }
 .scard:hover { border-color: var(--accent); color: var(--text); }
 .scard.plan { border-style: dashed; }
+.scard.proj { background: transparent; border-style: dotted; border-color: #5b6170; opacity: 0.8; }
+.scard.proj:hover { border-color: #5b6170; color: inherit; }
+.proj-banner { margin-top: 6px; padding: 10px 14px; border-radius: 10px; border: 1px dotted #5b6170; color: var(--soft); font-size: 14px; }
+.vbars .col.fut { opacity: 0.8; }
+.vbars .labels span.fut { color: #6b7280; }
 .scard .ty { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 .scard .ti { font-weight: 700; line-height: 1.2; }
 .scard .ft { margin-top: auto; display: flex; justify-content: space-between; font-size: 12px; gap: 6px; }

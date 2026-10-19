@@ -16,6 +16,7 @@ const S = {
   profil: null,
   objectifs: null,
   nut: null,
+  proj: { semaines: [] }, // plan/projection.json : semaines types non validées
   loaded: false,
   error: "",
   // Dernières positions visitées : les onglets Mois / Semaine / Séance y reviennent.
@@ -68,13 +69,15 @@ async function loadAll() {
     const core = ["catalogue/exercices.json", "plan/plan.json", "profil/athlete.json", "profil/objectifs.json"];
     const logFiles = files.filter((p) => p.startsWith("logs/") && p.endsWith(".json"));
     const nutFiles = files.filter((p) => p.startsWith("nutrition/") && p.endsWith(".json"));
-    const data = await S.store.readMany([...core, ...logFiles, ...nutFiles]);
+    const extra = files.includes("plan/projection.json") ? ["plan/projection.json"] : [];
+    const data = await S.store.readMany([...core, ...extra, ...logFiles, ...nutFiles]);
     ingestNutrition(S, data, nutFiles);
     const cat = data.get(core[0]) || { exercices: [] };
     S.ex = new Map(cat.exercices.map((e) => [e.id, e]));
     S.plan = data.get(core[1]) || { sessions: [] };
     S.profil = data.get(core[2]);
     S.objectifs = data.get(core[3]);
+    S.proj = data.get("plan/projection.json") || { semaines: [] };
     S.logs = logFiles.map((p) => data.get(p)).filter(Boolean)
       .sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id));
     S.loaded = true;
@@ -100,7 +103,14 @@ function setSync(msg, cls) {
 const plannedDone = () => new Set(S.logs.map((l) => l.plan_id).filter(Boolean));
 const planById = (id) => S.plan.sessions.find((s) => s.id === id);
 
-// Séances d'un jour : réalisées (logs) + prévues (plan) pas encore loguées.
+// Projection : utilisée seulement pour une semaine à venir où le coach n'a encore rien programmé.
+const weekHasPlan = (monday) => S.plan.sessions.some((s) => s.date >= monday && s.date <= U.addDays(monday, 6));
+function projWeek(monday) {
+  if (U.addDays(monday, 6) < today() || weekHasPlan(monday)) return null;
+  return (S.proj.semaines || []).find((w) => w.lundi === monday) || null;
+}
+
+// Séances d'un jour : réalisées (logs) + prévues (plan) pas encore loguées, sinon projection.
 function sessionsOn(iso) {
   const done = plannedDone();
   const logs = S.logs.filter((l) => l.date === iso).map((s) => ({ s, log: true }));
@@ -108,7 +118,19 @@ function sessionsOn(iso) {
   const plans = S.plan.sessions
     .filter((p) => p.date === iso && !done.has(p.id) && !ids.has(p.id))
     .map((s) => ({ s, log: false }));
-  return [...logs, ...plans];
+  const proj = iso < today() ? [] : (projWeek(U.mondayOf(iso))?.seances || [])
+    .filter((p) => p.date === iso).map((s) => ({ s, log: false, proj: true }));
+  return [...logs, ...plans, ...proj];
+}
+
+// Minutes prévues d'une semaine par groupe : plan du coach, sinon projection.
+function plannedStats(monday) {
+  const sunday = U.addDays(monday, 6);
+  const pw = projWeek(monday);
+  const list = pw ? pw.seances || [] : S.plan.sessions.filter((s) => s.date >= monday && s.date <= sunday && s.date >= today());
+  const byGroup = Object.fromEntries(GROUPS.map((g) => [g[0], 0]));
+  for (const s of list) { const g = groupOf(s.type); if (g) byGroup[g] += Number(s.duration_min) || 0; }
+  return { byGroup, total: Object.values(byGroup).reduce((a, b) => a + b, 0), proj: !!pw };
 }
 
 const minutes = (s) => (s.status === "saute" ? 0 : Number(s.duration_min) || 0);
@@ -157,6 +179,8 @@ function weekPhase(monday) {
   for (const l of S.logs) if (l.phase && l.date >= monday && l.date <= sunday) counts.set(l.phase, (counts.get(l.phase) || 0) + 1);
   const best = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
   if (best) return best;
+  const pw = projWeek(monday);
+  if (pw?.label) return pw.label;
   const ph = phaseAt(monday);
   return ph ? ph.nom : "";
 }
@@ -214,6 +238,11 @@ function lineChart(points, color, { lo, hi } = {}) {
 function chip(x) {
   const s = x.s;
   const race = s.type === "course_officielle";
+  if (x.proj) {
+    return `<span class="chip proj" title="Projection non validée${s.note ? " — " + esc(s.note) : ""}">
+      <span class="t">${sw(TYPE_COLOR[s.type] || "#7d8592")}<span>${esc(shortTitle(s.title))}</span></span>
+      <span class="m">${esc(["projection", s.duration_min ? `${s.duration_min} min` : ""].filter(Boolean).join(" · "))}</span></span>`;
+  }
   const cls = ["chip", x.log ? "" : "plan", race ? "race" : "", s.status === "saute" ? "saute" : ""].join(" ");
   let meta;
   if (!x.log) meta = ["prévu", s.duration_min ? `${s.duration_min} min` : ""].filter(Boolean).join(" · ");
@@ -367,19 +396,24 @@ function viewSaison() {
   // Volume hebdo
   const weeks = [];
   for (let m = U.mondayOf(start); m <= U.mondayOf(t); m = U.addDays(m, 7)) weeks.push([m, weekStats(m)]);
-  const maxMin = Math.max(480, ...weeks.map(([, w]) => w.total));
+  // Semaines à venir jusqu'à la course : plan du coach, sinon projection (hachuré).
+  const future = [];
+  for (let m = U.addDays(U.mondayOf(t), 7); m <= U.mondayOf(end); m = U.addDays(m, 7)) future.push([m, plannedStats(m)]);
+  const hatch = (c) => `repeating-linear-gradient(135deg, ${c} 0 3px, transparent 3px 6px);box-shadow:inset 0 0 0 1px ${c}`;
+  const maxMin = Math.max(480, ...weeks.map(([, w]) => w.total), ...future.map(([, w]) => w.total));
   const scaleH = Math.ceil(maxMin / 120) * 120;
   const axis = Array.from({ length: 4 }, (_, i) => `${fr((scaleH / 60) * (1 - i / 4), 1)} h`);
   const peak = weeks.reduce((a, b) => (b[1].total > a[1].total ? b : a), weeks[0] || ["", { total: 0 }]);
   const vol = `<div class="card grow2">
     <div class="card-h"><h2>Volume hebdomadaire</h2>${legend()}</div>
-    <div class="scroll-x"><div class="vbars">
+    <div class="scroll-x"><div class="vbars" style="min-width:${Math.max(760, (weeks.length + future.length) * 22)}px">
       <div class="axis">${axis.map((a) => `<span>${a}</span>`).join("")}<span>0</span></div>
       <div class="plot"><div class="cols">${weeks.map(([m, w]) => `<a class="col" href="#/semaine/${m}" title="Semaine du ${U.fmtShort(m)} — ${fmtMin(w.total)}">
-        ${GROUPS.filter((g) => w.byGroup[g[0]] > 0).map((g) => `<div style="height:${(w.byGroup[g[0]] / scaleH) * 200}px;background:${g[2]}"></div>`).join("")}</a>`).join("")}</div>
-      <div class="labels">${weeks.map(([m]) => `<span class="${m === U.mondayOf(t) ? "on" : ""}">${U.fmtShort(m)}</span>`).join("")}</div></div>
+        ${GROUPS.filter((g) => w.byGroup[g[0]] > 0).map((g) => `<div style="height:${(w.byGroup[g[0]] / scaleH) * 200}px;background:${g[2]}"></div>`).join("")}</a>`).join("")}${future.map(([m, w]) => `<a class="col fut" href="#/semaine/${m}" title="Semaine du ${U.fmtShort(m)} — ${w.proj ? "projection" : "prévu"} ${fmtMin(w.total)}">
+        ${GROUPS.filter((g) => w.byGroup[g[0]] > 0).map((g) => `<div style="height:${(w.byGroup[g[0]] / scaleH) * 200}px;background:${hatch(g[2])}"></div>`).join("")}</a>`).join("")}</div>
+      <div class="labels">${weeks.map(([m]) => `<span class="${m === U.mondayOf(t) ? "on" : ""}">${U.fmtShort(m)}</span>`).join("")}${future.map(([m]) => `<span class="fut">${U.fmtShort(m)}</span>`).join("")}</div></div>
     </div></div>
-    <p class="small muted" style="margin:0">Minutes réalisées par semaine (séances sautées exclues). Cliquer une barre ouvre la semaine.${peak?.[1]?.total ? ` Pic : ${fmtMin(peak[1].total)} la semaine du ${U.fmtShort(peak[0])}.` : ""}</p>
+    <p class="small muted" style="margin:0">Minutes réalisées par semaine (séances sautées exclues)${future.length ? ", puis prévu ou projeté en hachuré jusqu'à la course" : ""}. Cliquer une barre ouvre la semaine.${peak?.[1]?.total ? ` Pic : ${fmtMin(peak[1].total)} la semaine du ${U.fmtShort(peak[0])}.` : ""}</p>
   </div>`;
 
   // Polarisation (estimation RPE, course + Hyrox)
@@ -439,13 +473,13 @@ function viewMois(key) {
   let grid = `<span></span>${JOURS.map((j) => `<span class="lbl head">${j}</span>`).join("")}`;
   for (let m = U.mondayOf(first); m <= last; m = U.addDays(m, 7)) {
     const ws = weekStats(m);
-    const planned = S.plan.sessions.filter((s) => s.date >= m && s.date <= U.addDays(m, 6) && s.date >= t);
-    const plannedMin = planned.reduce((a, s) => a + (Number(s.duration_min) || 0), 0);
+    const ps = plannedStats(m);
+    const plannedMin = ps.total;
     const ph = weekPhase(m);
     const code = (ph.match(/^S\d+/) || [""])[0] || `Sem. ${U.fmtShort(m)}`;
     const subTxt = ph.replace(/^S\d+\s*[—-]\s*/, "");
     grid += `<a class="wk" href="#/semaine/${m}"><span class="code">${esc(code)}</span><span class="xs muted">${esc(subTxt)}</span>
-      <span style="margin-top:auto;font-size:13px;font-weight:600">${ws.total ? fmtMin(ws.total) : plannedMin ? "prévu " + fmtMin(plannedMin) : "—"}</span><span class="go">Voir →</span></a>`;
+      <span style="margin-top:auto;font-size:13px;font-weight:600">${ws.total ? fmtMin(ws.total) : plannedMin ? (ps.proj ? "projection " : "prévu ") + fmtMin(plannedMin) : "—"}</span><span class="go">Voir →</span></a>`;
     for (let i = 0; i < 7; i++) {
       const d = U.addDays(m, i);
       const ses = sessionsOn(d);
@@ -510,7 +544,8 @@ function viewMois(key) {
         ${events.map(([d, col, txt]) => `<div style="display:flex;gap:10px"><span class="cond" style="flex:none;width:46px;font-weight:700;color:${col}">${U.fmtShort(d)}</span><span style="font-size:14px">${esc(txt)}</span></div>`).join("") || `<p class="empty">Rien de particulier.</p>`}
       </div>
       <div class="legend">${["hyrox", "course", "muscu", "foot", "autre"].map((k) => `<span>${sw(TYPE_COLOR[k])}${TYPE_LABEL[k]}</span>`).join("")}
-        <span><span class="sw" style="width:14px;border:1px dashed #9097a3;background:none"></span>Prévu</span></div>
+        <span><span class="sw" style="width:14px;border:1px dashed #9097a3;background:none"></span>Prévu</span>
+        <span><span class="sw" style="width:14px;border:1px dotted #5b6170;background:none"></span>Projection (non validée)</span></div>
     </aside>
   </div>`;
 }
@@ -534,7 +569,8 @@ function viewSemaine(monday) {
   const perDay = days.map((d) => sessionsOn(d).map((x) => ({ ...x, plan: x.log ? planById(x.s.plan_id) : x.s })));
 
   const ws = weekStats(monday);
-  const planned = S.plan.sessions.filter((s) => s.date >= monday && s.date <= sunday);
+  const pw = projWeek(monday);
+  const planned = pw ? pw.seances || [] : S.plan.sessions.filter((s) => s.date >= monday && s.date <= sunday);
   const plannedMin = planned.reduce((a, s) => a + (Number(s.duration_min) || 0), 0);
   const logs = ws.logs.filter((l) => l.type !== "repos");
   const nDone = logs.filter((l) => l.status !== "saute").length;
@@ -556,6 +592,12 @@ function viewSemaine(monday) {
     <span class="xs muted" title="${esc(salles[JOURS_KEYS[i]] || "")}">${esc((salles[JOURS_KEYS[i]] || "").split("—")[0].split("/")[0].trim())}</span></div>`).join("");
   const cards = perDay.map((list) => `<div style="display:flex;flex-direction:column;gap:6px">${list.map((x) => {
     const s = x.s;
+    if (x.proj) {
+      return `<div class="scard proj" title="${esc(s.note || "")}">
+        <span class="ty" style="color:${TYPE_COLOR[s.type]}">${sw(TYPE_COLOR[s.type])}${esc(TYPE_LABEL[s.type] || s.type)}</span>
+        <span class="ti">${esc(s.title)}</span>${s.note ? `<span class="xs muted">${esc(s.note)}</span>` : ""}
+        <span class="ft"><span class="muted">${s.duration_min != null ? s.duration_min + " min" : "—"}</span><strong class="muted">Projection</strong></span></div>`;
+    }
     const st = x.log ? STATUS_LABEL[s.status] || "" : "Prévue";
     const stc = x.log ? STATUS_COLOR[s.status] || "var(--muted)" : "var(--muted)";
     const dur = s.duration_min == null ? "—" : `${s.duration_min}${x.log && x.plan?.duration_min ? " / " + x.plan.duration_min : ""} min`;
@@ -628,9 +670,10 @@ function viewSemaine(monday) {
       <h1>${esc(ph || "Semaine du " + U.fmtShort(monday))}</h1>
       <a class="arrow" href="#/semaine/${U.addDays(monday, 7)}" aria-label="Semaine suivante">›</a></div>
     <div class="sub">${esc(U.fmtDay(monday, true))} → ${esc(U.fmtDay(sunday, true))}${U.mondayOf(t) === monday && S.plan.message_coach ? " · " + esc(S.plan.message_coach) : ""}</div>
+    ${pw ? `<div class="proj-banner"><strong>Projection — pas encore validée par le coach.</strong> Semaine type sans contraintes${pw.focus ? " · " + esc(pw.focus) : ""}. Elle sera remplacée par le vrai programme dès qu'il sera écrit.${S.proj.avertissement ? `<br><span class="xs">${esc(S.proj.avertissement)}</span>` : ""}</div>` : ""}
   </div>
   <section class="grid-auto" style="--min:200px;gap:14px">
-    ${kcard("Volume", fmtMin(ws.total), plannedMin ? `prévu ${fmtMin(plannedMin)}${ws.total ? ` · ${Math.round((ws.total / plannedMin) * 100)} %` : ""}` : "réalisé")}
+    ${kcard("Volume", fmtMin(ws.total), plannedMin ? `${pw ? "projection" : "prévu"} ${fmtMin(plannedMin)}${ws.total ? ` · ${Math.round((ws.total / plannedMin) * 100)} %` : ""}` : "réalisé")}
     ${kcard("Séances", `${nDone}`, `${nMod} modifiée${nMod > 1 ? "s" : ""} · ${nSkip} sautée${nSkip > 1 ? "s" : ""}`)}
     ${kcard("RPE moyen", rpes.length ? fr(avg(rpes), 1) : "—", `${rpes.length} séance${rpes.length > 1 ? "s" : ""} notée${rpes.length > 1 ? "s" : ""}`)}
     ${kcard("Sommeil", sAvg != null ? `${fr(sAvg)} · ${fmtMin(dAvg || 0)}` : "—", "score · durée moyenne")}

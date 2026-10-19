@@ -2,6 +2,11 @@
 
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 
+## v2.4 — 2026-10-19
+- Vue ordinateur : projection des semaines à venir (`plan/projection.json`, écrit par le coach),
+  en pointillés et marquée « non validée ». Une semaine projetée disparaît dès que le vrai programme
+  de la semaine est écrit. Volume hebdo prolongé jusqu'à la course en hachuré.
+
 ## v2.3 — 2026-10-19
 - Vue ordinateur `desktop.html` (lecture seule) : Saison › Mois › Semaine › Séance, plus Analyses.
   Croise séances, sommeil et nutrition ; même token que l'app (à saisir une fois par navigateur).
