@@ -74,7 +74,7 @@ function itemLabel(N, it) {
 
 const eaten = (rep) => rep.statut === "prevu" || rep.statut === "modifie";
 
-function dayMacros(N, journal) {
+export function dayMacros(N, journal) {
   let t = zero();
   for (const rep of journal.repas) if (eaten(rep)) for (const it of rep.items) t = add(t, itemMacros(N, it));
   return t;
@@ -91,7 +91,7 @@ function dayType(S, iso) {
   return sport ? "entrainement" : "repos";
 }
 
-const target = (S, iso) => S.nut.objectifs?.jours?.[dayType(S, iso)] || null;
+export const target = (S, iso) => S.nut.objectifs?.jours?.[dayType(S, iso)] || null;
 
 const r0 = (m) => Object.fromEntries(MACROS.map((k) => [k, Math.round(m[k] || 0)]));
 

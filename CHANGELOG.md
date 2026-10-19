@@ -2,6 +2,11 @@
 
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 
+## v2.3 — 2026-10-19
+- Vue ordinateur `desktop.html` (lecture seule) : Saison › Mois › Semaine › Séance, plus Analyses.
+  Croise séances, sommeil et nutrition ; même token que l'app (à saisir une fois par navigateur).
+- Réglages : lien vers la vue ordinateur.
+
 ## v2.2 — 2026-10-14
 - Repas du jour : protéines / glucides / lipides affichés pour chaque plat.
 - Graphiques : toucher n'importe où dans une colonne affiche les valeurs.

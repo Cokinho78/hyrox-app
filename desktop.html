@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hyrox Desk</title>
+  <meta name="description" content="Vue ordinateur : saison, mois, semaine, séance et analyses.">
+  <meta name="theme-color" content="#0e0f12">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="desktop.css">
+  <script type="module" src="js/desktop.js"></script>
+</head>
+<body>
+  <header class="dtop">
+    <a href="#/saison" class="dlogo">HYROX<span>desk</span></a>
+    <nav id="dnav" class="dnav" aria-label="Niveaux"></nav>
+    <div class="dsync">
+      <span id="dsync-dot" class="dot" aria-hidden="true"></span>
+      <span id="dsync-txt">Chargement…</span>
+      <button id="drefresh" class="dbtn ghost" type="button">Synchroniser</button>
+      <a href="#/reglages" class="dbtn ghost">Réglages</a>
+    </div>
+  </header>
+  <main id="dview" class="dmain"></main>
+</body>
+</html>

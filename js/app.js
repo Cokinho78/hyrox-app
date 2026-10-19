@@ -6,7 +6,7 @@ import { ingestNutrition, renderNutrition } from "./nutrition.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v2.2";
+export const APP_VERSION = "v2.3";
 
 const S = {
   cfg: loadConfig(),
@@ -378,7 +378,8 @@ function viewSettings() {
     </details>
     <button class="btn ghost wide" id="clearcache">Vider le cache local</button>
     <p class="meta center">Données : ${U.esc(c.owner)}/${U.esc(c.repo)} · ${S.logs.length} séances chargées</p>
-    <p class="meta center">Version de l'app : <strong>${APP_VERSION}</strong></p>`;
+    <p class="meta center">Version de l'app : <strong>${APP_VERSION}</strong></p>
+    <p class="meta center">Sur ordinateur : <a href="desktop.html" class="linkbtn">desktop.html</a></p>`;
 }
 
 // ---------------------------------------------------------------- saisie
