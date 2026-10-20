@@ -3,7 +3,7 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v2.5 — 2026-10-20
+## v2.5 — 2026-10-20 · commit 68a368a
 - Vue ordinateur, onglet Analyses : section « Sommeil, nutrition & corps » regroupable par jour,
   semaine ou mois. Sommeil : score, durée, phases, coucher moyen. Nutrition : kcal et macros vs
   cible, jours où les protéines sont atteintes, repas notés (journée en cours exclue). Poids &
