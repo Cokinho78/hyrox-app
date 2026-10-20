@@ -3,6 +3,12 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
+## v2.5 — 2026-10-20
+- Vue ordinateur, onglet Analyses : section « Sommeil, nutrition & corps » regroupable par jour,
+  semaine ou mois. Sommeil : score, durée, phases, coucher moyen. Nutrition : kcal et macros vs
+  cible, jours où les protéines sont atteintes, repas notés (journée en cours exclue). Poids &
+  composition : courbe par balance, tableau des pesées avec écarts sur la même balance.
+
 ## v2.4 — 2026-10-19 · commit 98941e2
 - Vue ordinateur : projection des semaines à venir (`plan/projection.json`, écrit par le coach),
   en pointillés et marquée « non validée ». Une semaine projetée disparaît dès que le vrai programme

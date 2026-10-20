@@ -3,7 +3,7 @@
 // (store.js), aucune écriture dans hyrox-data.
 import { Store, StoreError, loadConfig, saveConfig } from "./store.js";
 import * as U from "./util.js";
-import { ingestNutrition, dayMacros, target as dayTarget } from "./nutrition.js";
+import { ingestNutrition, dayMacros, target as dayTarget, BALANCES } from "./nutrition.js";
 
 // ---------------------------------------------------------------- état global
 
@@ -23,6 +23,7 @@ const S = {
   pos: { month: null, week: null, seance: null },
   show: { sleep: true, food: true },
   analysisEx: null,
+  grain: "jour", // regroupement de la section sommeil / nutrition : jour, semaine, mois
 };
 
 const TYPE_LABEL = {
@@ -925,11 +926,6 @@ function viewAnalyses() {
   }
   const maxM = Math.max(...months.map((m) => m.mins), 60);
 
-  // Sommeil, nutrition : 14 derniers jours avec données
-  const nights = [...S.nut.sommeil.values()].filter((n) => n.date <= t).sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
-  const foods = [...S.nut.journal.keys()].filter((d) => d <= t).sort().slice(-14).map((d) => ({ d, ...foodOf(d) }));
-  const maxK = Math.max(4200, ...foods.map((f) => f.m.kcal));
-
   // Douleurs : 90 derniers jours
   const since = U.addDays(t, -90);
   const pains = S.logs.filter((l) => l.pain && l.date >= since);
@@ -953,13 +949,8 @@ function viewAnalyses() {
       <div class="simple-labels">${months.map((m) => `<span><a href="#/mois/${m.key}"><b>${MOIS_COURT[+m.key.slice(5) - 1]}</b></a>${m.n} séances</span>`).join("")}</div>
     </section>
   </div>
+  ${viewRecup()}
   <div class="row">
-    <section class="card grow1" style="flex-basis:420px">
-      <h2>Sommeil — ${nights.length} nuits</h2>
-      ${nights.length ? `<div class="simple-bars" style="height:170px">${nights.map((n) => `<div title="${U.fmtShort(n.date)} — score ${n.score ?? "—"}, ${fmtMin(n.duree_min || 0)}"><b style="color:${sleepColor(n.score)}">${n.score ?? "—"}</b><i style="height:${((n.score || 0) / 100) * 120}px;background:${sleepColor(n.score)};opacity:.85"></i></div>`).join("")}</div>
-      <div class="simple-labels">${nights.map((n) => `<span><b>${U.fmtShort(n.date)}</b>${n.duree_min ? fmtMin(n.duree_min).replace(" ", "") : ""}</span>`).join("")}</div>
-      <p class="small muted" style="margin:0">Score Apple Watch, durée sous chaque barre (nuit qui se termine ce jour-là).</p>` : `<p class="empty">Pas de nuits enregistrées.</p>`}
-    </section>
     <section class="card grow1" style="flex-basis:420px">
       <h2>Douleurs — 90 jours</h2>
       <div style="display:flex;flex-direction:column">${pains.map((l) => `<a href="#/seance/${encodeURIComponent(l.id)}" style="display:flex;gap:14px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--surface2)">
@@ -968,15 +959,189 @@ function viewAnalyses() {
         <span style="font-size:14px">${esc(l.pain)}</span></a>`).join("") || `<p class="empty">Aucune douleur notée.</p>`}</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px">${bless.map((b) => `<span class="pill" style="font-size:13px;font-weight:500;${/surveillance/i.test(b.statut) ? "color:var(--warn)" : ""}">${esc(b.zone)} · ${esc(b.statut)}</span>`).join("")}</div>
     </section>
-    <section class="card grow1" style="flex-basis:420px">
-      <h2>Nutrition — ${foods.length} jours</h2>
-      <div style="display:flex;flex-direction:column;gap:8px">${foods.map((f) => `<div style="display:grid;grid-template-columns:58px minmax(0,1fr) 64px 56px;gap:10px;align-items:center;font-size:13px">
-        <span style="font-weight:600">${esc(U.fmtDay(f.d).split(" ").slice(0, 2).join(" "))}</span>
-        <div class="meter"><div style="width:${(f.m.kcal / maxK) * 100}%;background:${foodColor(f.ratio)}"></div>${f.t ? `<i style="left:${(f.t.kcal / maxK) * 100}%"></i>` : ""}</div>
-        <strong style="text-align:right">${fr(f.m.kcal)}</strong><span style="text-align:right;color:${f.t?.p && f.m.p >= f.t.p ? "var(--ok)" : "var(--warn)"}">${fr(f.m.p)} g</span></div>`).join("") || `<p class="empty">Pas de journal repas.</p>`}</div>
-      <p class="small muted" style="margin:0">Barre = kcal, trait blanc = cible du jour. Colonne de droite = protéines.</p>
-    </section>
   </div>`;
+}
+
+// ---------------------------------------------------------------- Analyses : sommeil, nutrition, corps
+
+const PHASES = [["profond", "Profond", "#7c8cf8"], ["paradoxal", "Paradoxal", "#4fd1c5"], ["lent", "Lent", "#5b6170"], ["eveil", "Éveil", "#ffb547"]];
+const GRAINS = [["jour", "Par jour"], ["semaine", "Par semaine"], ["mois", "Par mois"]];
+const balanceLabel = (id) => BALANCES.find(([b]) => b === id)?.[1] || id || "balance";
+
+// "00:32", "~00:20", "23:53" → minutes après 18 h (pour moyenner des couchers autour de minuit).
+function bedMinutes(txt) {
+  const m = String(txt || "").match(/(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return ((+m[1] * 60 + +m[2] - 18 * 60) + 1440) % 1440;
+}
+const fmtBed = (v) => (v == null ? "—" : `${U.pad(Math.floor((v / 60 + 18) % 24))}:${U.pad(Math.round(v % 60))}`);
+
+function bucketOf(iso) {
+  if (S.grain === "semaine") { const m = U.mondayOf(iso); return [m, `Sem. ${U.fmtShort(m)}`]; }
+  if (S.grain === "mois") { const k = monthOf(iso); return [k, U.fmtMonth(k + "-01")]; }
+  return [iso, U.fmtDay(iso).split(" ").slice(0, 2).join(" ")];
+}
+function buckets(items) {
+  const map = new Map();
+  for (const it of items) {
+    const [k, label] = bucketOf(it.date);
+    if (!map.has(k)) map.set(k, { k, label, items: [] });
+    map.get(k).items.push(it);
+  }
+  return [...map.values()].sort((a, b) => a.k.localeCompare(b.k));
+}
+const mean = (a) => { const v = a.filter((x) => x != null && !Number.isNaN(x)); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : null; };
+
+function viewRecup() {
+  const t = today();
+  const grainBtns = GRAINS.map(([g, l]) => `<button type="button" class="toggle" data-grain="${g}" aria-pressed="${S.grain === g}">${l}</button>`).join("");
+
+  // ---- Sommeil
+  const nights = [...S.nut.sommeil.values()].filter((n) => n.date <= t).sort((a, b) => a.date.localeCompare(b.date));
+  const sb = buckets(nights).slice(S.grain === "jour" ? -14 : -12).map((b) => {
+    const ph = Object.fromEntries(PHASES.map(([k]) => [k, mean(b.items.map((n) => n.phases_min?.[k]))]));
+    const duree = mean(b.items.map((n) => n.duree_min));
+    const classed = PHASES.reduce((a, [k]) => a + (ph[k] || 0), 0);
+    return { ...b, n: b.items.length, score: mean(b.items.map((n) => n.score)), duree, ph,
+      autre: duree != null ? Math.max(0, duree - classed) : 0, bed: mean(b.items.map((n) => bedMinutes(n.coucher))) };
+  });
+  const maxD = Math.max(540, ...sb.map((b) => b.duree || 0));
+  const sleepChart = sb.length ? `
+    <div class="simple-bars" style="height:200px">${sb.map((b) => `<div title="${esc(b.label)} — ${b.n} nuit${b.n > 1 ? "s" : ""}, score ${b.score != null ? fr(b.score) : "—"}, ${fmtMin(b.duree || 0)}">
+      <b style="color:${sleepColor(b.score)}">${b.score != null ? fr(b.score) : "—"}</b>
+      <span style="display:flex;flex-direction:column-reverse;width:100%;max-width:56px;gap:1px">
+        ${PHASES.map(([k, , c]) => (b.ph[k] ? `<i style="height:${(b.ph[k] / maxD) * 150}px;background:${c};border-radius:2px"></i>` : "")).join("")}
+        ${b.autre > 5 ? `<i style="height:${(b.autre / maxD) * 150}px;border:1px dashed #5b6170;border-radius:2px;background:none"></i>` : ""}
+      </span></div>`).join("")}</div>
+    <div class="simple-labels">${sb.map((b) => `<span><b>${esc(b.label)}</b>${b.duree != null ? fmtMin(b.duree).replace(" ", "") : ""}</span>`).join("")}</div>
+    <div class="legend">${PHASES.map(([, l, c]) => `<span>${sw(c)}${l}</span>`).join("")}<span><span class="sw" style="border:1px dashed #5b6170;background:none"></span>Non classé</span><span>Chiffre = score</span></div>` : `<p class="empty">Pas de nuits enregistrées.</p>`;
+  const sleepTable = sb.length ? `<div class="scroll-x"><table><thead><tr><th>Période</th><th>Nuits</th><th>Score</th><th>Durée</th><th>Coucher</th><th>Profond</th><th>Paradoxal</th></tr></thead><tbody>
+    ${sb.slice().reverse().map((b) => `<tr><td style="font-weight:600">${esc(b.label)}</td><td>${b.n}</td><td style="font-weight:700;color:${sleepColor(b.score)}">${b.score != null ? fr(b.score) : "—"}</td>
+      <td>${b.duree != null ? fmtMin(b.duree) : "—"}</td><td>${fmtBed(b.bed)}</td><td>${b.ph.profond != null ? fmtMin(b.ph.profond) : "—"}</td><td>${b.ph.paradoxal != null ? fmtMin(b.ph.paradoxal) : "—"}</td></tr>`).join("")}
+    </tbody></table></div>` : "";
+  const allScore = mean(nights.map((n) => n.score)), allDur = mean(nights.map((n) => n.duree_min));
+  const short = nights.filter((n) => n.duree_min != null && n.duree_min < 420).length;
+  const sCible = S.nut.objectifs?.sommeil;
+
+  // ---- Nutrition
+  // La journée en cours est exclue : ses repas ne sont pas encore tous notés.
+  const todayOpen = S.nut.journal.has(t);
+  const days = [...S.nut.journal.keys()].filter((d) => d < t).sort().map((d) => {
+    const f = foodOf(d);
+    const j = S.nut.journal.get(d);
+    const repas = j.repas || [];
+    return { date: d, ...f, nRepas: repas.length, nOk: repas.filter((r) => r.statut === "prevu" || r.statut === "modifie").length };
+  });
+  const nb = buckets(days).slice(S.grain === "jour" ? -14 : -12).map((b) => {
+    const avg = (k) => mean(b.items.map((x) => x.m?.[k]));
+    return { ...b, n: b.items.length, kcal: avg("kcal"), p: avg("p"), g: avg("g"), l: avg("l"),
+      target: mean(b.items.map((x) => x.t?.kcal)), tp: mean(b.items.map((x) => x.t?.p)),
+      pOk: b.items.filter((x) => x.t?.p && x.m.p >= x.t.p).length,
+      repas: b.items.reduce((a, x) => a + x.nOk, 0), repasTot: b.items.reduce((a, x) => a + x.nRepas, 0) };
+  });
+  const maxK = Math.max(3500, ...nb.map((b) => Math.max(b.kcal || 0, b.target || 0)));
+  const MAC = [["p", "Protéines", "#a78bfa", 4], ["g", "Glucides", "#f5e400", 4], ["l", "Lipides", "#ff9f5a", 9]];
+  const foodChart = nb.length ? `
+    <div class="simple-bars" style="height:200px">${nb.map((b) => {
+      const r = b.target ? b.kcal / b.target : null;
+      return `<div title="${esc(b.label)} — ${fr(b.kcal || 0)} kcal${b.target ? ` / cible ${fr(b.target)}` : ""}">
+      <b style="color:${foodColor(r)}">${r != null ? Math.round(r * 100) + " %" : ""}</b>
+      <span style="position:relative;display:flex;flex-direction:column-reverse;width:100%;max-width:56px;gap:1px;min-height:${b.target ? (b.target / maxK) * 150 + 6 : 0}px">
+        ${MAC.map(([k, , c, f]) => (b[k] ? `<i style="height:${((b[k] * f) / maxK) * 150}px;background:${c};border-radius:2px"></i>` : "")).join("")}
+        ${b.target ? `<em style="position:absolute;left:-3px;right:-3px;bottom:${(b.target / maxK) * 150}px;height:2px;background:var(--text)"></em>` : ""}
+      </span></div>`;
+    }).join("")}</div>
+    <div class="simple-labels">${nb.map((b) => `<span><b>${esc(b.label)}</b>${fr(b.kcal || 0)}</span>`).join("")}</div>
+    <div class="legend">${MAC.map(([, l, c]) => `<span>${sw(c)}${l} (kcal)</span>`).join("")}<span><span class="sw" style="height:2px;background:var(--text)"></span>Cible kcal</span><span>Chiffre = % de la cible</span></div>` : `<p class="empty">Pas de journal repas.</p>`;
+  const foodTable = nb.length ? `<div class="scroll-x"><table><thead><tr><th>Période</th><th>Jours</th><th>kcal / j</th><th>Prot.</th><th>Gluc.</th><th>Lip.</th><th>Prot. ≥ cible</th><th>Repas notés</th></tr></thead><tbody>
+    ${nb.slice().reverse().map((b) => `<tr><td style="font-weight:600">${esc(b.label)}</td><td>${b.n}</td>
+      <td><strong style="color:${foodColor(b.target ? b.kcal / b.target : null)}">${fr(b.kcal || 0)}</strong>${b.target ? `<span class="muted"> / ${fr(b.target)}</span>` : ""}</td>
+      <td>${fr(b.p || 0)} g</td><td>${fr(b.g || 0)} g</td><td>${fr(b.l || 0)} g</td>
+      <td style="color:${b.pOk === b.n ? "var(--ok)" : "var(--warn)"}">${b.pOk} / ${b.n}</td><td class="muted">${b.repas} / ${b.repasTot}</td></tr>`).join("")}
+    </tbody></table></div>` : "";
+  const nObj = S.nut.objectifs;
+
+  // ---- Corps : chaque balance a sa propre série (composition non comparable d'une balance à l'autre).
+  const corps = S.nut.corps.slice().sort((a, b) => (a.date + (a.heure || "")).localeCompare(b.date + (b.heure || "")));
+  const balances = [...new Set(corps.map((c) => c.balance))];
+  const BCOL = ["#f5e400", "#4fd1c5", "#a78bfa", "#ff9f5a"];
+  const bcol = (b) => BCOL[balances.indexOf(b) % BCOL.length];
+  const ref = nObj?.base?.poids_kg;
+  let corpsChart = `<p class="empty">Pas encore de pesée.</p>`;
+  if (corps.length) {
+    const ws = corps.map((c) => c.poids_kg).filter((x) => x != null).concat(ref ? [ref] : []);
+    const lo = Math.min(...ws) - 0.8, hi = Math.max(...ws) + 0.8;
+    const d0 = corps[0].date, d1 = corps.at(-1).date;
+    const span = Math.max(U.daysBetween(d0, d1), 1);
+    const X = (d) => (corps.length === 1 ? 180 : 20 + (U.daysBetween(d0, d) / span) * 320);
+    const Y = (v) => 108 - ((v - lo) / (hi - lo)) * 88;
+    const lines = balances.map((b) => {
+      const pts = corps.filter((c) => c.balance === b && c.poids_kg != null);
+      return (pts.length > 1 ? `<polyline points="${pts.map((c) => `${X(c.date)},${Y(c.poids_kg)}`).join(" ")}" fill="none" stroke="${bcol(b)}" stroke-width="2"></polyline>` : "")
+        + pts.map((c) => `<circle cx="${X(c.date)}" cy="${Y(c.poids_kg)}" r="5" fill="${bcol(b)}"><title>${U.fmtShort(c.date)} · ${esc(balanceLabel(b))} : ${fr(c.poids_kg, 1)} kg</title></circle>
+          <text x="${X(c.date)}" y="${Y(c.poids_kg) - 9}" text-anchor="middle" fill="#f1f2f4" font-size="11" font-weight="700">${fr(c.poids_kg, 1)}</text>
+          <text x="${X(c.date)}" y="128" text-anchor="middle" fill="#9097a3" font-size="10">${U.fmtShort(c.date)}</text>`).join("");
+    }).join("");
+    corpsChart = `<div class="chart"><svg viewBox="0 0 360 130" role="img" aria-label="Poids : ${corps.map((c) => fr(c.poids_kg, 1)).join(", ")} kg">
+      ${ref ? `<line x1="0" x2="360" y1="${Y(ref)}" y2="${Y(ref)}" stroke="#5b6170" stroke-dasharray="4 4"></line><text x="356" y="${Y(ref) + 13}" text-anchor="end" fill="#9097a3" font-size="10">référence ${fr(ref, 1)} kg</text>` : ""}
+      ${lines}</svg></div>
+      <div class="legend">${balances.map((b) => `<span>${sw(bcol(b))}${esc(balanceLabel(b))}</span>`).join("")}</div>`;
+  }
+  const last = corps.at(-1), first = corps[0];
+  const corpsRows = corps.slice().reverse().map((c, i, arr) => {
+    const prevSame = arr.slice(i + 1).find((x) => x.balance === c.balance);
+    const dW = prevSame && c.poids_kg != null ? c.poids_kg - prevSame.poids_kg : null;
+    const dG = prevSame && c.gras_pct != null && prevSame.gras_pct != null ? c.gras_pct - prevSame.gras_pct : null;
+    const sign = (v, d = 1) => (v == null ? "" : `${v > 0 ? "+" : ""}${fr(v, d)}`);
+    return `<tr><td style="font-weight:600">${U.fmtShort(c.date)}${c.heure ? ` <span class="xs muted">${esc(c.heure)}</span>` : ""}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:6px">${sw(bcol(c.balance))}${esc(balanceLabel(c.balance))}</span></td>
+      <td><strong>${c.poids_kg != null ? fr(c.poids_kg, 1) + " kg" : "—"}</strong>${dW != null ? ` <span class="xs muted">${sign(dW)}</span>` : ""}</td>
+      <td>${c.gras_pct != null ? fr(c.gras_pct, 1) + " %" : "—"}${dG != null ? ` <span class="xs muted">${sign(dG)}</span>` : ""}</td>
+      <td>${c.muscle_kg != null ? fr(c.muscle_kg, 1) + " kg" : "—"}</td>
+      <td>${c.eau_pct != null ? fr(c.eau_pct, 1) + " %" : "—"}</td>
+      <td class="xs muted" title="${esc(c.note || "")}">${esc(c.conditions || c.lieu || "")}</td></tr>`;
+  }).join("");
+
+  const kpi = (v, l, col) => `<div style="display:flex;flex-direction:column"><span class="kpi" style="font-size:28px;${col ? "color:" + col : ""}">${v}</span><span class="xs muted">${l}</span></div>`;
+  return `
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <div class="card-h" style="align-items:center"><h2 class="muted">Sommeil, nutrition &amp; corps</h2>
+      <div class="toggles" role="group" aria-label="Regroupement">${grainBtns}</div></div>
+    <div class="row">
+      <section class="card grow1" style="flex-basis:520px">
+        <div class="card-h"><h2>Sommeil</h2><span class="small muted">${nights.length} nuit${nights.length > 1 ? "s" : ""} · Apple Watch</span></div>
+        <div class="grid-auto" style="--min:120px;gap:12px">
+          ${kpi(allScore != null ? fr(allScore) : "—", "score moyen")}${kpi(allDur != null ? fmtMin(allDur) : "—", sCible?.duree_min ? `durée moy. · cible ${fmtMin(sCible.duree_min)}` : "durée moyenne")}
+          ${kpi(short, "nuits sous 7 h", short ? "var(--warn)" : "")}${kpi(fmtBed(mean(nights.map((n) => bedMinutes(n.coucher)))), "coucher moyen")}
+        </div>
+        ${sleepChart}${sleepTable}
+      </section>
+      <section class="card grow1" style="flex-basis:520px">
+        <div class="card-h"><h2>Nutrition</h2><span class="small muted">${days.length} jour${days.length > 1 ? "s" : ""}${todayOpen ? " (aujourd'hui exclu, en cours)" : ""} · ${esc((nObj?.statut || "").split("—")[0].trim())}</span></div>
+        <div class="grid-auto" style="--min:120px;gap:12px">
+          ${kpi(fr(mean(days.map((d) => d.m?.kcal)) || 0), "kcal / jour")}${kpi(`${fr(mean(days.map((d) => d.m?.p)) || 0)} g`, "protéines / jour")}
+          ${kpi(`${days.filter((d) => d.t?.p && d.m.p >= d.t.p).length} / ${days.length}`, "jours protéines ≥ cible")}
+          ${kpi(`${days.filter((d) => d.ratio != null && d.ratio >= 0.9 && d.ratio <= 1.1).length} / ${days.length}`, "jours à ±10 % des kcal")}
+        </div>
+        ${foodChart}${foodTable}
+      </section>
+    </div>
+    <section class="card">
+      <div class="card-h"><h2>Poids &amp; composition</h2><span class="small muted">${corps.length} pesée${corps.length > 1 ? "s" : ""}${balances.length > 1 ? ` · ${balances.length} balances` : ""}</span></div>
+      <div class="row" style="gap:24px">
+        <div class="grow1" style="display:flex;flex-direction:column;gap:12px;flex-basis:360px">
+          <div class="grid-auto" style="--min:120px;gap:12px">
+            ${kpi(last?.poids_kg != null ? fr(last.poids_kg, 1) + " kg" : "—", last ? `dernière pesée · ${U.fmtShort(last.date)}` : "dernière pesée")}
+            ${kpi(first && last && first !== last ? `${last.poids_kg - first.poids_kg > 0 ? "+" : ""}${fr(last.poids_kg - first.poids_kg, 1)} kg` : "—", first && last && first !== last ? `depuis le ${U.fmtShort(first.date)}` : "variation")}
+            ${kpi(ref ? fr(ref, 1) + " kg" : "—", "poids de référence (nutrition)")}
+          </div>
+          ${corpsChart}
+        </div>
+        <div class="grow2 scroll-x" style="flex-basis:560px"><table><thead><tr><th>Date</th><th>Balance</th><th>Poids</th><th>% gras</th><th>Muscle</th><th>Eau</th><th>Conditions</th></tr></thead><tbody>${corpsRows || `<tr><td colspan="7" class="muted">Aucune pesée.</td></tr>`}</tbody></table></div>
+      </div>
+      <p class="small muted" style="margin:0">Le poids se compare d'une balance à l'autre ; le % de gras, le muscle et l'eau seulement sur la même balance (écart affiché par rapport à la pesée précédente sur cette balance). Pour suivre une tendance, pèse-toi dans les mêmes conditions (même balance, même moment de la journée).</p>
+    </section>
+  </section>`;
 }
 
 // ---------------------------------------------------------------- réglages
@@ -1049,6 +1214,14 @@ function render() {
 }
 
 $view.addEventListener("click", (e) => {
+  const g = e.target.closest("[data-grain]");
+  if (g) {
+    S.grain = g.dataset.grain;
+    const y = window.scrollY;
+    render();
+    window.scrollTo(0, y);
+    return;
+  }
   const b = e.target.closest("[data-toggle]");
   if (!b) return;
   S.show[b.dataset.toggle] = !S.show[b.dataset.toggle];
