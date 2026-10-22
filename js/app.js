@@ -6,7 +6,7 @@ import { ingestNutrition, renderNutrition } from "./nutrition.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v2.5";
+export const APP_VERSION = "v2.6";
 
 const S = {
   cfg: loadConfig(),

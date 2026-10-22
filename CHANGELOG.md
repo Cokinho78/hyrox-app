@@ -3,6 +3,13 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
+## v2.6 — 2026-10-22
+- Repas du jour : compteur « fin de journée estimée ». Les repas pas encore cochés comptent
+  dans l'estimé (aujourd'hui et jours à venir ; jours passés : non coché = 0, sauté exclu).
+  Barres : plein = mangé, hachuré = prévu restant, trait à la cible quand l'estimé la dépasse,
+  orange au-delà de +10 %. Valeurs préfixées « ~ » tant qu'il reste un repas non coché.
+  Affichage seulement : le JSON enregistré et le bilan ne changent pas.
+
 ## v2.5 — 2026-10-20 · commit 68a368a
 - Vue ordinateur, onglet Analyses : section « Sommeil, nutrition & corps » regroupable par jour,
   semaine ou mois. Sommeil : score, durée, phases, coucher moyen. Nutrition : kcal et macros vs

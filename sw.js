@@ -1,7 +1,7 @@
 // Cache de l'app pour qu'elle s'ouvre sans réseau. Stratégie : réseau d'abord
 // (les mises à jour arrivent tout de suite), cache en secours. Les appels à
 // l'API GitHub ne passent pas par ici (gérés par le cache de store.js).
-const CACHE = "hyrox-shell-v11";
+const CACHE = "hyrox-shell-v12";
 const CHART = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js";
 
 self.addEventListener("install", (e) => {

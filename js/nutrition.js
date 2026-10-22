@@ -97,15 +97,59 @@ const r0 = (m) => Object.fromEntries(MACROS.map((k) => [k, Math.round(m[k] || 0)
 
 // ---------------------------------------------------------------- composants
 
-function bars(m, cible) {
+// Estimé de fin de journée (affichage seulement : ni le JSON enregistré ni dayMacros n'en tiennent compte).
+// Un repas non coché compte comme prévu si le jour n'est pas encore passé ; jours passés : 0.
+// "non_renseigne" = non coché dans une journée déjà enregistrée.
+const pendingMeal = (rep, open) => open && (rep.statut == null || rep.statut === "non_renseigne") && rep.items.length > 0;
+
+function dayEstimate(N, journal, iso) {
+  const open = iso >= U.isoDate();
+  const e = { eaten: zero(), pend: zero(), skip: zero(), nPend: 0 };
+  for (const rep of journal.repas) {
+    const m = rep.items.reduce((t, it) => add(t, itemMacros(N, it)), zero());
+    if (eaten(rep)) e.eaten = add(e.eaten, m);
+    else if (rep.statut === "saute") e.skip = add(e.skip, m);
+    else if (pendingMeal(rep, open)) { e.pend = add(e.pend, m); e.nPend++; }
+  }
+  e.total = add(e.eaten, e.pend);
+  return e;
+}
+
+const fmtK = (n) => Math.round(n).toLocaleString("fr-FR");
+
+function estCard(est, cible) {
+  const pre = est.nPend ? "~" : "";
+  const k = est.total.kcal;
+  const c = cible?.kcal;
+  const d = c ? k - c : null;
+  return `<section class="estcard">
+    <div class="est-l">${est.nPend ? `Fin de journée estimée · ${est.nPend} repas pas encore coché${est.nPend > 1 ? "s" : ""}` : "Total du jour"}</div>
+    <div class="est-v"><strong>${pre}${fmtK(k)}</strong><span class="meta">kcal${c ? ` / ${fmtK(c)}` : ""}</span>
+      ${d != null ? `<span class="est-d ${k > c * 1.1 ? "over" : ""}">${d >= 0 ? "+" : "−"}${fmtK(Math.abs(d))}</span>` : ""}</div>
+    <div class="est-g">
+      <div><span>Mangé</span><strong>${fmtK(est.eaten.kcal)}</strong></div>
+      <div><span>Reste prévu</span><strong>${pre}${fmtK(est.pend.kcal)}</strong></div>
+      <div><span>Sauté</span><strong class="meta">${fmtK(est.skip.kcal)}</strong></div>
+    </div></section>
+    ${est.nPend ? `<div class="est-legend"><span><i class="sw-eaten"></i>Mangé</span><span><i class="hatch"></i>Prévu, pas encore coché</span></div>` : ""}`;
+}
+
+// Segment plein = mangé, hachuré = prévu restant. Échelle = max(cible, estimé) ;
+// trait à la cible quand l'estimé la dépasse, orange au-delà de +10 %.
+function bars(est, cible) {
+  const pre = est.nPend ? "~" : "";
   return `<div class="mbars">${MACROS.map((k) => {
-    const v = Math.round(m[k] || 0);
+    const e = est.eaten[k] || 0, p = est.pend[k] || 0, v = e + p;
     const c = cible?.[k];
-    const pct = c ? Math.min(100, (v / c) * 100) : 0;
+    const scale = c ? Math.max(c, v) : 0;
+    const pct = (x) => (scale ? (x / scale) * 100 : 0);
     const over = c && v > c * 1.1;
     return `<div class="mbar"><div class="mbar-h"><span>${MACRO_LABEL[k]}</span>
-      <strong>${v}${k === "kcal" ? "" : " g"}${c ? ` <span class="meta">/ ${c}</span>` : ""}</strong></div>
-      <div class="mbar-t"><div class="mbar-f ${over ? "over" : ""}" style="width:${pct}%"></div></div></div>`;
+      <strong><span class="${over ? "over" : ""}">${pre}${fmtK(v)}${k === "kcal" ? "" : " g"}</span>${c ? ` <span class="meta">/ ${fmtK(c)}</span>` : ""}</strong></div>
+      <div class="mbar-w"><div class="mbar-t">
+        <div class="mbar-f ${over && !est.nPend ? "over" : ""}" style="width:${pct(e)}%"></div>
+        <div class="mbar-p hatch ${over ? "over" : ""}" style="width:${pct(p)}%"></div></div>
+        ${c && v > c ? `<div class="mbar-c" style="left:calc(${pct(c)}% - 1px)"></div>` : ""}</div></div>`;
   }).join("")}</div>`;
 }
 
@@ -198,7 +242,8 @@ function viewDay(S, iso) {
   if (!J || J.iso !== iso) openDay(S, iso);
   const d = J.data;
   const cible = target(S, iso);
-  const tot = dayMacros(N, d);
+  const est = dayEstimate(N, d, iso);
+  const open = iso >= U.isoDate();
   const pd = planDay(N, iso);
   const comps = S.nut.objectifs?.complements || [];
   return `
@@ -209,12 +254,15 @@ function viewDay(S, iso) {
     </div>
     <p class="meta center">Jour ${dayType(S, iso) === "entrainement" ? "d'entraînement 💪" : "de repos"}
       ${pd ? "" : " · pas de menu prévu"}${J.dirty ? ' · <span class="warn">non enregistré</span>' : ""}</p>
-    ${bars(tot, cible)}
+    ${estCard(est, cible)}
+    ${bars(est, cible)}
     ${d.repas.map((rep, si) => {
       const label = SLOTS.find(([s]) => s === rep.slot)?.[1] || rep.slot;
       const m = rep.items.reduce((t, it) => add(t, itemMacros(N, it)), zero());
-      return `<section class="block meal ${rep.statut || "todo"}">
-        <div class="meal-h"><h4>${label}</h4><span class="meta">${rep.items.length ? macroLine(m) : ""}</span></div>
+      const pending = pendingMeal(rep, open);
+      return `<section class="block meal ${rep.statut || "todo"} ${pending ? "pending" : ""}">
+        <div class="meal-h"><div class="meal-t"><h4>${label}</h4>${pending ? '<span class="est-pill"><i class="hatch"></i>dans l\'estimé</span>' : ""}</div>
+          <span class="meta">${rep.items.length ? macroLine(m) : ""}</span></div>
         ${rep.items.map((it, ii) => itemEditor(N, it, si, ii)).join("") || '<p class="meta">Rien de prévu.</p>'}
         ${addSelect(N, si)}
         <div class="chips">
