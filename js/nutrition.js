@@ -185,16 +185,31 @@ function buildJournal(S, iso) {
   };
 }
 
+// Version du repo sur laquelle un brouillon est basé : updated_at du journal (ou "" s'il n'en a
+// pas), null si le repo n'a pas encore ce jour.
+function repoBase(S, iso) {
+  const existing = S.nut.journal.get(iso);
+  return existing ? existing.updated_at || "" : null;
+}
+
 function openDay(S, iso) {
   openLibre.clear();
+  const base = repoBase(S, iso);
   let draft = null;
   try { draft = JSON.parse(localStorage.getItem(draftKey(iso)) || "null"); } catch { draft = null; }
-  J = { iso, data: draft || buildJournal(S, iso), dirty: !!draft };
+  // Ancien format (journal brut) : sa base est l'updated_at copié du journal d'origine.
+  if (draft && !("base" in draft && "data" in draft)) draft = { base: draft.updated_at ?? null, data: draft };
+  // Le repo a changé depuis le brouillon (ex. journée remplie par le coach) : le repo gagne.
+  if (draft && draft.base !== base) {
+    try { localStorage.removeItem(draftKey(iso)); } catch { /* ignore */ }
+    draft = null;
+  }
+  J = { iso, base, data: draft?.data || buildJournal(S, iso), dirty: !!draft };
 }
 
 function saveDraft() {
   J.dirty = true;
-  try { localStorage.setItem(draftKey(J.iso), JSON.stringify(J.data)); } catch { /* ignore */ }
+  try { localStorage.setItem(draftKey(J.iso), JSON.stringify({ base: J.base, data: J.data })); } catch { /* ignore */ }
 }
 
 function itemEditor(N, it, si, ii) {
@@ -239,7 +254,7 @@ function addSelect(N, si) {
 
 function viewDay(S, iso) {
   const N = S.nut;
-  if (!J || J.iso !== iso) openDay(S, iso);
+  if (!J || J.iso !== iso || J.base !== repoBase(S, iso)) openDay(S, iso);
   const d = J.data;
   const cible = target(S, iso);
   const est = dayEstimate(N, d, iso);
@@ -339,6 +354,7 @@ function bindDay(view, S, ctx) {
         N.journal.set(J.iso, d);
         localStorage.removeItem(draftKey(J.iso));
         J.dirty = false;
+        J.base = d.updated_at;
         J.data = U.clone(d);
       }
       rerender();
@@ -693,3 +709,5 @@ export function renderNutrition(view, S, ctx, sub, arg) {
 }
 
 export const hasUnsavedDay = () => !!J?.dirty;
+// Après « Vider le cache local » : oublie aussi la journée gardée en mémoire.
+export const forgetDay = () => { J = null; };

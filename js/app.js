@@ -2,11 +2,11 @@ import { Store, StoreError, loadConfig, saveConfig, clearCache } from "./store.j
 import * as U from "./util.js";
 import { renderProgress } from "./charts.js";
 import { OTHER, fillPicker, pickLabel, textInput, durationInput } from "./pickers.js";
-import { ingestNutrition, renderNutrition } from "./nutrition.js";
+import { ingestNutrition, renderNutrition, forgetDay } from "./nutrition.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v2.6";
+export const APP_VERSION = "v2.7";
 
 const S = {
   cfg: loadConfig(),
@@ -812,6 +812,7 @@ function bindSettings() {
   };
   document.getElementById("clearcache").onclick = () => {
     clearCache();
+    forgetDay();
     toast("Cache vidé");
     loadAll();
   };

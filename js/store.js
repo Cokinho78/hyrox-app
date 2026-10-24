@@ -5,6 +5,7 @@
 const CFG_KEY = "hyrox:cfg";
 const BLOB_PREFIX = "hyrox:blob:";
 const TREE_KEY = "hyrox:tree";
+const NUTRI_DRAFT_PREFIX = "hyrox:nutri:"; // brouillons de journée (js/nutrition.js)
 
 export function loadConfig() {
   const params = new URLSearchParams(location.search);
@@ -25,7 +26,7 @@ export function saveConfig(cfg) {
 
 export function clearCache() {
   Object.keys(localStorage)
-    .filter((k) => k.startsWith(BLOB_PREFIX) || k === TREE_KEY)
+    .filter((k) => k.startsWith(BLOB_PREFIX) || k.startsWith(NUTRI_DRAFT_PREFIX) || k === TREE_KEY)
     .forEach((k) => localStorage.removeItem(k));
 }
 

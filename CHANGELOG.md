@@ -3,6 +3,13 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
+## v2.7 — 2026-10-24
+- Repas du jour : un brouillon local ne masque plus la version du repo. Si le journal du jour a
+  été modifié dans `hyrox-data` depuis le début du brouillon (ex. journée remplie par le coach),
+  le brouillon est abandonné et la version du repo s'affiche. Brouillon d'un jour non modifié
+  ailleurs : conservé comme avant, même après rechargement.
+- Réglages : « Vider le cache local » supprime aussi les brouillons de journée nutrition.
+
 ## v2.6 — 2026-10-22 · commit d7bc88e
 - Repas du jour : compteur « fin de journée estimée ». Les repas pas encore cochés comptent
   dans l'estimé (aujourd'hui et jours à venir ; jours passés : non coché = 0, sauté exclu).
