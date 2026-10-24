@@ -3,7 +3,7 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v2.7 — 2026-10-24
+## v2.7 — 2026-10-24 · commit a661ed9
 - Repas du jour : un brouillon local ne masque plus la version du repo. Si le journal du jour a
   été modifié dans `hyrox-data` depuis le début du brouillon (ex. journée remplie par le coach),
   le brouillon est abandonné et la version du repo s'affiche. Brouillon d'un jour non modifié
