@@ -886,11 +886,13 @@ function stationVolume() {
   const from = race ? race.date : U.addDays(t, -28);
   const logs = S.logs.filter((l) => l.date > from && l.date <= t && l.type !== "course_officielle" && l.status !== "saute");
 
-  const acc = new Map(stations.map((e) => [e.id, { mes: 0, est: 0, blind: 0, days: new Set() }]));
+  const acc = new Map(stations.map((e) => [e.id, { mes: 0, est: 0, blind: 0, days: new Set(), warm: null }]));
   const blindLogs = []; // séances Hyrox sans aucune station détaillée (texte d'import seulement)
   for (const l of logs) {
     for (const b of l.blocks || []) {
-      if (!S.show.warm && /chauffement/i.test(b.name)) continue;
+      const warm = /chauffement/i.test(b.name);
+      if (warm) for (const it of b.items || []) if (acc.has(it.exercise)) acc.get(it.exercise).warm = l.date;
+      if (!S.show.warm && warm) continue;
       for (const it of b.items || []) {
         const a = acc.get(it.exercise);
         if (!a) continue;
@@ -932,7 +934,7 @@ function stationVolume() {
         <strong style="width:44px;text-align:right">×${fr(r.mes + r.est, 1)}</strong></div></td>
       <td class="small">${fr(r.a.mes)} ${r.unit}${r.a.est ? ` <span class="muted">+ ~${fr(r.a.est)} estimé</span>` : ""}${r.a.blind ? ` <span class="muted">· ${r.a.blind} série${r.a.blind > 1 ? "s" : ""} sans distance</span>` : ""}</td>
       <td>${r.a.days.size}</td>
-      <td style="color:${r.gap == null || r.gap > 14 ? "var(--warn)" : "var(--text)"}">${r.last ? `${U.fmtShort(r.last)} · il y a ${r.gap} j` : "—"}</td></tr>`).join("")}
+      <td style="color:${r.gap == null || r.gap > 14 ? "var(--warn)" : "var(--text)"}">${r.last ? `${U.fmtShort(r.last)} · il y a ${r.gap} j` : "—"}${!S.show.warm && r.a.warm && r.a.warm > (r.last || "") ? `<br><span class="xs muted">échauffement : ${U.fmtShort(r.a.warm)}</span>` : ""}</td></tr>`).join("")}
     </tbody></table></div>
     <p class="small muted" style="margin:0">Trait vertical = moyenne des stations (×${fr(avg, 1)}). En orange : station pas travaillée depuis plus de 14 jours (règle : chaque station au moins toutes les 2 semaines).${blindLogs.length ? ` Non comptées, faute de détail par station : ${blindLogs.map((l) => `<a href="#/seance/${encodeURIComponent(l.id)}" style="text-decoration:underline">${esc(shortTitle(l.title))} (${U.fmtShort(l.date)})</a>`).join(", ")}.` : ""}</p>`;
 }

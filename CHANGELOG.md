@@ -9,6 +9,7 @@ Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sin
   exclus sauf bouton. Volume en « × course » (1 = une station complète) pour comparer les stations,
   trait à la moyenne, date de dernière séance (orange au-delà de 14 jours). Hachuré = estimé (temps
   saisi sans distance). Séances Hyrox sans détail par station listées, non comptées.
+  Si un échauffement est plus récent que la dernière séance de la station, sa date s'affiche en dessous.
 
 ## v2.7 — 2026-10-24 · commit a661ed9
 - Repas du jour : un brouillon local ne masque plus la version du repo. Si le journal du jour a
