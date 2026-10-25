@@ -3,7 +3,7 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v2.8 — 2026-10-25
+## v2.8 — 2026-10-25 · commit 082049e
 - Vue ordinateur, onglet Analyses : « Volume par station » Hyrox, depuis une course au choix
   (par défaut Lyon) ou sur 28 jours. Séances d'entraînement seulement (courses exclues), échauffements
   exclus sauf bouton. Volume en « × course » (1 = une station complète) pour comparer les stations,
