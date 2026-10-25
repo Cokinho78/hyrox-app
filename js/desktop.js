@@ -21,8 +21,9 @@ const S = {
   error: "",
   // Dernières positions visitées : les onglets Mois / Semaine / Séance y reviennent.
   pos: { month: null, week: null, seance: null },
-  show: { sleep: true, food: true },
+  show: { sleep: true, food: true, warm: false }, // warm : échauffements comptés dans le volume par station
   analysisEx: null,
+  stFrom: null, // départ du volume par station : id d'une course officielle, ou "28j"
   grain: "jour", // regroupement de la section sommeil / nutrition : jour, semaine, mois
 };
 
@@ -872,6 +873,70 @@ function viewSeance(id) {
 
 // ---------------------------------------------------------------- vue Analyses
 
+// Volume par station Hyrox depuis une course : séances d'entraînement seulement (courses officielles exclues).
+// Unité commune = la distance (ou les reps) de la station en course : 1 = une station complète.
+// Série avec un temps mais sans distance/reps (imports Excel) → comptée comme une station complète, en estimé.
+function stationVolume() {
+  const t = today();
+  const stations = [...S.ex.values()].filter((e) => e.category === "hyrox" && (e.race?.distance_m || e.race?.reps));
+  if (!stations.length) return `<p class="empty">Pas de station avec distance de course dans le catalogue.</p>`;
+  const races = S.logs.filter((l) => l.type === "course_officielle");
+  if (!S.stFrom) S.stFrom = (races.find((r) => /lyon/i.test(r.title)) || races.at(-1))?.id || "28j";
+  const race = races.find((r) => r.id === S.stFrom);
+  const from = race ? race.date : U.addDays(t, -28);
+  const logs = S.logs.filter((l) => l.date > from && l.date <= t && l.type !== "course_officielle" && l.status !== "saute");
+
+  const acc = new Map(stations.map((e) => [e.id, { mes: 0, est: 0, blind: 0, days: new Set() }]));
+  const blindLogs = []; // séances Hyrox sans aucune station détaillée (texte d'import seulement)
+  for (const l of logs) {
+    for (const b of l.blocks || []) {
+      if (!S.show.warm && /chauffement/i.test(b.name)) continue;
+      for (const it of b.items || []) {
+        const a = acc.get(it.exercise);
+        if (!a) continue;
+        const key = S.ex.get(it.exercise).race.reps ? "reps" : "distance_m";
+        for (const x of it.sets || []) {
+          if (x.done === false) continue;
+          a.days.add(l.date);
+          if (x[key]) a.mes += x[key];
+          else if (x.duration_s) a.est += S.ex.get(it.exercise).race[key];
+          else a.blind += 1;
+        }
+      }
+    }
+    if (l.type === "hyrox" && !(l.blocks || []).some((b) => (b.items || []).some((it) => acc.has(it.exercise)))) blindLogs.push(l);
+  }
+
+  const rows = stations.map((e) => {
+    const a = acc.get(e.id);
+    const std = e.race.reps || e.race.distance_m;
+    const last = [...a.days].sort().at(-1) || null;
+    return { e, a, std, unit: e.race.reps ? "reps" : "m", mes: a.mes / std, est: a.est / std, last, gap: last ? U.daysBetween(last, t) : null };
+  });
+  const max = Math.max(...rows.map((r) => r.mes + r.est), 1);
+  const avg = rows.reduce((x, r) => x + r.mes + r.est, 0) / rows.length;
+  const hatch = "repeating-linear-gradient(135deg, var(--accent) 0 3px, transparent 3px 6px);box-shadow:inset 0 0 0 1px var(--accent)";
+  const opts = [...races.map((r) => [r.id, `Depuis ${raceName(r)} (${U.fmtShort(r.date)})`]), ["28j", "28 derniers jours"]];
+
+  return `<div class="card-h"><h2>Volume par station</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <select class="dsel" id="st-from">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === S.stFrom ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
+        <button type="button" class="toggle" data-toggle="warm" aria-pressed="${S.show.warm}">Échauffements inclus</button></div></div>
+    <p class="small muted" style="margin:0">${logs.length} séances d'entraînement du ${U.fmtShort(U.addDays(from, 1))} au ${U.fmtShort(t)} (courses officielles exclues). Unité : « × course » = nombre de stations complètes (ex. ×3 au ski erg = 3 000 m). Hachuré = estimé : temps saisi sans distance, compté comme une station complète.</p>
+    <div class="scroll-x"><table style="min-width:760px"><thead><tr><th>Station</th><th style="width:38%">× course</th><th>Volume</th><th>Séances</th><th>Dernière fois</th></tr></thead><tbody>
+    ${rows.map((r) => `<tr><td style="font-weight:600">${esc(r.e.name)}</td>
+      <td><div style="display:flex;align-items:center;gap:10px"><div style="position:relative;flex:1;height:12px;display:flex;border-radius:3px;background:var(--surface2)">
+        <i style="display:block;width:${(r.mes / max) * 100}%;background:var(--accent);border-radius:3px 0 0 3px"></i>
+        <i style="display:block;width:${(r.est / max) * 100}%;background:${hatch}"></i>
+        <s title="moyenne des stations" style="position:absolute;top:-3px;bottom:-3px;left:${(avg / max) * 100}%;border-left:2px solid var(--text);opacity:.5"></s></div>
+        <strong style="width:44px;text-align:right">×${fr(r.mes + r.est, 1)}</strong></div></td>
+      <td class="small">${fr(r.a.mes)} ${r.unit}${r.a.est ? ` <span class="muted">+ ~${fr(r.a.est)} estimé</span>` : ""}${r.a.blind ? ` <span class="muted">· ${r.a.blind} série${r.a.blind > 1 ? "s" : ""} sans distance</span>` : ""}</td>
+      <td>${r.a.days.size}</td>
+      <td style="color:${r.gap == null || r.gap > 14 ? "var(--warn)" : "var(--text)"}">${r.last ? `${U.fmtShort(r.last)} · il y a ${r.gap} j` : "—"}</td></tr>`).join("")}
+    </tbody></table></div>
+    <p class="small muted" style="margin:0">Trait vertical = moyenne des stations (×${fr(avg, 1)}). En orange : station pas travaillée depuis plus de 14 jours (règle : chaque station au moins toutes les 2 semaines).${blindLogs.length ? ` Non comptées, faute de détail par station : ${blindLogs.map((l) => `<a href="#/seance/${encodeURIComponent(l.id)}" style="text-decoration:underline">${esc(shortTitle(l.title))} (${U.fmtShort(l.date)})</a>`).join(", ")}.` : ""}</p>`;
+}
+
 function viewAnalyses() {
   const t = today();
   const ref = S.objectifs?.references;
@@ -934,6 +999,7 @@ function viewAnalyses() {
   return `
   <h1>Analyses</h1>
   <section class="card"><div class="card-h"><h2>Chronos Hyrox par segment</h2></div>${hyrox}</section>
+  <section class="card">${stationVolume()}</section>
   <div class="row">
     <section class="card grow1" style="flex-basis:520px">
       <div class="card-h"><h2>Progression des charges</h2>
@@ -1211,6 +1277,8 @@ function render() {
   $view.innerHTML = (views[route] || viewSaison)(id);
   const sel = document.getElementById("ex-select");
   if (sel) sel.onchange = () => { S.analysisEx = sel.value; render(); };
+  const stSel = document.getElementById("st-from");
+  if (stSel) stSel.onchange = () => { const y = window.scrollY; S.stFrom = stSel.value; render(); window.scrollTo(0, y); };
 }
 
 $view.addEventListener("click", (e) => {
@@ -1225,7 +1293,9 @@ $view.addEventListener("click", (e) => {
   const b = e.target.closest("[data-toggle]");
   if (!b) return;
   S.show[b.dataset.toggle] = !S.show[b.dataset.toggle];
+  const y = window.scrollY;
   render();
+  window.scrollTo(0, y);
 });
 window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
 document.getElementById("drefresh").onclick = () => loadAll();
