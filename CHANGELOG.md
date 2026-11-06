@@ -3,7 +3,7 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v3.1 — 2026-11-06
+## v3.1 — 2026-11-06 · commit c20cce0
 - Barre du bas : elle flotte maintenant par-dessus le contenu, qui défile jusqu'en bas de l'écran
   (avant, une bande vide restait sous la barre). Barre plus proche du bas, juste au-dessus de la barre
   d'accueil de l'iPhone. Les boutons « Enregistrer » restent collés juste au-dessus d'elle.
