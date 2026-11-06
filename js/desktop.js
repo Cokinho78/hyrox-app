@@ -4,6 +4,7 @@
 import { Store, StoreError, loadConfig, saveConfig } from "./store.js";
 import * as U from "./util.js";
 import { ingestNutrition, dayMacros, target as dayTarget, BALANCES } from "./nutrition.js";
+import { icon } from "./icons.js";
 
 // ---------------------------------------------------------------- état global
 
@@ -1245,14 +1246,14 @@ function viewReglages() {
 function nav(active) {
   const t = today();
   const items = [
-    ["saison", "Saison", "#/saison"],
-    ["mois", "Mois", `#/mois/${S.pos.month || monthOf(t)}`],
-    ["semaine", "Semaine", `#/semaine/${S.pos.week || U.mondayOf(t)}`],
-    ["seance", "Séance", `#/seance/${encodeURIComponent(S.pos.seance || S.logs.filter((l) => l.date <= t).at(-1)?.id || "")}`],
-    ["analyses", "Analyses", "#/analyses"],
+    ["saison", "Saison", "#/saison", "goals"],
+    ["mois", "Mois", `#/mois/${S.pos.month || monthOf(t)}`, "week"],
+    ["semaine", "Semaine", `#/semaine/${S.pos.week || U.mondayOf(t)}`, "list"],
+    ["seance", "Séance", `#/seance/${encodeURIComponent(S.pos.seance || S.logs.filter((l) => l.date <= t).at(-1)?.id || "")}`, "today"],
+    ["analyses", "Analyses", "#/analyses", "progress"],
   ];
   document.getElementById("dnav").innerHTML = items
-    .map(([k, l, h]) => `<a href="${h}" class="${k === active ? "on" : ""}">${l}</a>`).join("");
+    .map(([k, l, h, ic]) => `<a href="${h}" class="${k === active ? "on" : ""}"${k === active ? ' aria-current="page"' : ""}>${icon(ic, 19)}<span>${l}</span></a>`).join("");
 }
 
 function render() {
