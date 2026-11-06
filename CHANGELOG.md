@@ -3,6 +3,13 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
+## v2.9 — 2026-11-06 · commit a69f381
+- Repas du jour : ajout d'un aliment par recherche texte. Le menu déroulant devient un champ
+  « + Ajouter : chercher un aliment… » : quelques lettres suffisent, les aliments, recettes et plats
+  FoodChéri correspondants s'affichent (12 max), sans tenir compte des accents ni des majuscules
+  (« oeuf » trouve « Œuf entier »). Le nom d'un rayon marche aussi (« féculents »). Entrée ajoute le
+  premier résultat. Champ vide : « Saisie libre » et « Plat FoodChéri » restent proposés.
+
 ## v2.8 — 2026-10-25 · commit 082049e
 - Vue ordinateur, onglet Analyses : « Volume par station » Hyrox, depuis une course au choix
   (par défaut Lyon) ou sur 28 jours. Séances d'entraînement seulement (courses exclues), échauffements
