@@ -3,7 +3,7 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v3.0 — 2026-11-06
+## v3.0 — 2026-11-06 · commit 72e1a2c
 - Nouveau design (direction A des maquettes) : noir plus profond, cartes sans bordure aux coins plus
   ronds, icônes au trait à la place des emojis et symboles. Le jaune ne change pas.
 - En-tête : logo HYROX + bouton d'espace (« Sport ▾ ») qui ouvre le volet ; synchro et réglages en icônes.
