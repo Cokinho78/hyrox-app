@@ -312,6 +312,25 @@ input.num:focus, select.num:focus, .form input:focus, .form textarea:focus { out
 .icon.small { width: 30px; height: 30px; font-size: 14px; }
 .form label > select.num, .form label > .dur { margin-top: 4px; }
 .form .dur select.num { flex: 1; }
+/* ajout d'un aliment par recherche (Repas du jour) */
+.add-wrap { margin-top: 12px; }
+.add-search {
+  display: block; width: 100%; padding: 12px; font: 16px "Barlow", sans-serif; color: var(--text);
+  background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
+  -webkit-appearance: none; appearance: none;
+}
+.add-search::placeholder { color: var(--accent); opacity: 0.85; }
+.add-search:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.add-results { display: flex; flex-direction: column; gap: 6px; }
+.add-results:not(:empty) { margin-top: 8px; }
+.add-hit {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px;
+  text-align: left; color: var(--text); background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
+  font: 500 15px "Barlow", sans-serif; cursor: pointer;
+}
+.add-hit:active { border-color: var(--accent); }
+.add-hit .meta { margin: 0; font-size: 12px; white-space: nowrap; }
+.add-more { margin: 2px 2px 0; font-size: 13px; }
 .todo-row { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .todo-row input { width: 22px; height: 22px; accent-color: var(--ok); }
 .todo-row.done span:nth-child(2) { text-decoration: line-through; color: var(--muted); }

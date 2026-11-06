@@ -238,18 +238,80 @@ function itemEditor(N, it, si, ii) {
     <div class="nitem-c">${ctrl}</div></div>`;
 }
 
-function addSelect(N, si) {
-  const rec = [...N.recettes.values()].map((r) => `<option value="recette:${r.id}">${U.esc(r.nom)}</option>`).join("");
-  const fc = [...N.foodcheri.values()].map((p) => `<option value="foodcheri:${p.id}">${U.esc(p.nom)}</option>`).join("");
-  const al = Object.entries(N.rayons).map(([ray, lab]) => {
-    const list = [...N.aliments.values()].filter((a) => a.rayon === ray);
-    return list.length ? `<optgroup label="${U.esc(lab)}">${list.map((a) => `<option value="aliment:${a.id}">${U.esc(a.nom)}</option>`).join("")}</optgroup>` : "";
-  }).join("");
-  return `<select class="add-ex add-item" data-slot="${si}"><option value="">+ Ajouter…</option>
-    <option value="libre:">Saisie libre (kcal / macros)</option>
-    <option value="foodcheri:">Plat FoodChéri</option>
-    ${rec ? `<optgroup label="Recettes">${rec}</optgroup>` : ""}
-    ${fc ? `<optgroup label="FoodChéri déjà vus">${fc}</optgroup>` : ""}${al}</select>`;
+// ---------------------------------------------------------------- ajout par recherche
+
+// Sans accents ni majuscules : « oeuf » trouve « Œuf », « feculents » trouve le rayon « Féculents ».
+export const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae");
+
+const ADD_SPECIAL = [
+  { v: "libre:", nom: "Saisie libre (kcal / macros)", cat: "" },
+  { v: "foodcheri:", nom: "Plat FoodChéri (estimation)", cat: "" },
+];
+const ADD_MAX = 12;
+
+// Tout ce qu'on peut ajouter à un repas, recalculé quand les données sont rechargées.
+let choices = null;
+let choicesOf = null;
+function addChoices(N) {
+  if (choicesOf === N) return choices;
+  const entry = (v, nom, cat) => {
+    const kn = norm(nom);
+    return { v, nom, cat, kn, kc: norm(cat), words: kn.split(/[^a-z0-9]+/).filter(Boolean) };
+  };
+  choices = [
+    ...[...N.recettes.values()].map((r) => entry(`recette:${r.id}`, r.nom, "Recette")),
+    ...[...N.foodcheri.values()].map((p) => entry(`foodcheri:${p.id}`, p.nom, "FoodChéri")),
+    ...[...N.aliments.values()].map((a) => entry(`aliment:${a.id}`, a.nom, N.rayons?.[a.rayon] || "Aliment")),
+  ];
+  choicesOf = N;
+  return choices;
+}
+
+// Chaque mot tapé doit apparaître dans le nom (ou le rayon). Ordre : nom qui commence par le
+// premier mot, puis un mot du nom qui commence par lui, puis le reste ; à égalité, le nom le plus court.
+export function searchChoices(list, q) {
+  const toks = norm(q).split(/\s+/).filter(Boolean);
+  if (!toks.length) return { hits: [], more: 0 };
+  const scored = [];
+  for (const c of list) {
+    if (!toks.every((t) => c.kn.includes(t) || c.kc.includes(t))) continue;
+    const rank = c.kn.startsWith(toks[0]) ? 0
+      : c.words.some((w) => w.startsWith(toks[0])) ? 1
+        : toks.every((t) => c.kn.includes(t)) ? 2 : 3;
+    scored.push([rank, c]);
+  }
+  scored.sort((a, b) => a[0] - b[0] || a[1].nom.length - b[1].nom.length || a[1].nom.localeCompare(b[1].nom, "fr"));
+  return { hits: scored.slice(0, ADD_MAX).map(([, c]) => c), more: Math.max(0, scored.length - ADD_MAX) };
+}
+
+function addResults(N, si, q) {
+  const hit = (c) => `<button type="button" class="add-hit" data-act="add-pick" data-slot="${si}" data-v="${U.esc(c.v)}">
+    <span>${U.esc(c.nom)}</span>${c.cat ? `<span class="meta">${U.esc(c.cat)}</span>` : ""}</button>`;
+  const special = ADD_SPECIAL.map(hit).join("");
+  if (!q.trim()) {
+    return `${special}<p class="meta add-more">Tape un nom pour chercher parmi ${addChoices(N).length} aliments, recettes et plats.</p>`;
+  }
+  const { hits, more } = searchChoices(addChoices(N), q);
+  if (!hits.length) return `<p class="meta add-more">Rien pour « ${U.esc(q.trim())} ».</p>${special}`;
+  return hits.map(hit).join("") + (more ? `<p class="meta add-more">+ ${more} autres : précise la recherche.</p>` : "");
+}
+
+function addPicker(si) {
+  return `<div class="add-wrap">
+    <input type="search" class="add-search" data-slot="${si}" placeholder="+ Ajouter : chercher un aliment…"
+      aria-label="Ajouter un aliment, une recette ou un plat" autocomplete="off" autocorrect="off"
+      autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    <div class="add-results" data-slot="${si}"></div>
+  </div>`;
+}
+
+function newItem(N, value) {
+  const [type, ref] = value.split(":");
+  return type === "recette" ? { type, ref, portions: 1 }
+    : type === "aliment" ? { type, ref, g: N.aliments.get(ref)?.unites?.dose || 100 }
+      : type === "foodcheri" ? { type, ...(ref ? { ref } : {}) }
+        : { type: "libre", label: "", ...zero() };
 }
 
 function viewDay(S, iso) {
@@ -279,7 +341,7 @@ function viewDay(S, iso) {
         <div class="meal-h"><div class="meal-t"><h4>${label}</h4>${pending ? '<span class="est-pill"><i class="hatch"></i>dans l\'estimé</span>' : ""}</div>
           <span class="meta">${rep.items.length ? macroLine(m) : ""}</span></div>
         ${rep.items.map((it, ii) => itemEditor(N, it, si, ii)).join("") || '<p class="meta">Rien de prévu.</p>'}
-        ${addSelect(N, si)}
+        ${addPicker(si)}
         <div class="chips">
           <button class="chip ${eaten(rep) ? "on" : ""}" data-act="eat" data-slot="${si}">✓ Mangé</button>
           <button class="chip ${rep.statut === "saute" ? "on" : ""}" data-act="skip" data-slot="${si}">✗ Sauté</button>
@@ -306,8 +368,15 @@ function bindDay(view, S, ctx) {
     const rep = J.data.repas[si];
     if (eaten(rep)) rep.statut = slotStatus(N, J.iso, rep);
   };
+  // Résultats de recherche : mis à jour sur place (un rerender ferait perdre le clavier).
+  const showAdd = (input) => {
+    view.querySelectorAll(".add-results").forEach((r) => {
+      r.innerHTML = r.dataset.slot === input.dataset.slot ? addResults(N, +input.dataset.slot, input.value) : "";
+    });
+  };
   view.oninput = (e) => {
     const t = e.target;
+    if (t.classList.contains("add-search")) { showAdd(t); return; }
     if (t.dataset.act === "note") { J.data.note = t.value; saveDraft(); return; }
     if (t.classList.contains("lbl")) { itemOf(t).label = t.value; saveDraft(); }
   };
@@ -321,26 +390,27 @@ function bindDay(view, S, ctx) {
       if (t.value === "__libre") Object.assign(it, { type: "libre", ref: undefined, label: "FoodChéri", ...r0(N.foodcheriDefaut) });
       else it.ref = t.value || undefined;
       touched(+t.dataset.slot);
-    } else if (t.classList.contains("add-item") && t.value) {
-      const [type, ref] = t.value.split(":");
-      const rep = J.data.repas[+t.dataset.slot];
-      const it = type === "recette" ? { type, ref, portions: 1 }
-        : type === "aliment" ? { type, ref, g: N.aliments.get(ref)?.unites?.dose || 100 }
-          : type === "foodcheri" ? { type, ...(ref ? { ref } : {}) }
-            : { type: "libre", label: "", ...zero() };
-      rep.items.push(it);
-      rep.statut = "modifie";
     } else return;
     saveDraft();
     rerender();
   };
+  // Entrée = premier résultat.
+  view.onkeydown = (e) => {
+    const t = e.target;
+    if (e.key !== "Enter" || !t.classList?.contains("add-search")) return;
+    e.preventDefault();
+    if (t.value.trim()) view.querySelector(`.add-results[data-slot="${t.dataset.slot}"] .add-hit`)?.click();
+  };
   view.onclick = async (e) => {
+    if (e.target.classList?.contains("add-search")) { showAdd(e.target); return; }
+    if (!e.target.closest(".add-wrap")) view.querySelectorAll(".add-results").forEach((r) => { r.innerHTML = ""; });
     const b = e.target.closest("[data-act]");
     if (!b || b.tagName === "TEXTAREA") return;
     const act = b.dataset.act;
     const rep = b.dataset.slot != null ? J.data.repas[+b.dataset.slot] : null;
     if (act === "eat") rep.statut = eaten(rep) ? null : slotStatus(N, J.iso, rep);
     else if (act === "skip") rep.statut = rep.statut === "saute" ? null : "saute";
+    else if (act === "add-pick") { rep.items.push(newItem(N, b.dataset.v)); rep.statut = "modifie"; }
     else if (act === "del") { rep.items.splice(+b.dataset.item, 1); openLibre.clear(); touched(+b.dataset.slot); }
     else if (act === "edit-libre") { openLibre.add(`${b.dataset.slot}:${b.dataset.item}`); rerender(); return; }
     else if (act === "comp") { J.data.complements[b.dataset.ref] = !J.data.complements[b.dataset.ref]; }
