@@ -3,7 +3,7 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v2.9 — 2026-11-06
+## v2.9 — 2026-11-06 · commit a69f381
 - Repas du jour : ajout d'un aliment par recherche texte. Le menu déroulant devient un champ
   « + Ajouter : chercher un aliment… » : quelques lettres suffisent, les aliments, recettes et plats
   FoodChéri correspondants s'affichent (12 max), sans tenir compte des accents ni des majuscules
