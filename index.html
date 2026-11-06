@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Hyrox Coach</title>
   <meta name="description" content="Programme, saisie des séances et progression Hyrox.">
-  <meta name="theme-color" content="#0e0f12">
+  <meta name="theme-color" content="#0b0c0f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
   <link rel="icon" href="icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
   <script type="module" src="js/app.js"></script>
@@ -23,26 +23,26 @@
 <body>
   <header class="top">
     <div class="top-left">
-      <button id="menu" class="icon" aria-label="Changer d'espace">☰</button>
-      <a href="#/today" class="logo">HYROX<span id="space-name">sport</span></a>
+      <a href="#/today" class="logo">HYROX</a>
+      <button id="menu" class="space-btn" type="button" title="Changer d'espace" aria-haspopup="true"><span id="space-name">Sport</span><span data-icon="down" data-size="16"></span></button>
     </div>
     <div class="top-actions">
-      <button id="refresh" class="icon" aria-label="Synchroniser">⟳</button>
-      <a href="#/settings" class="icon" aria-label="Réglages">⚙︎</a>
+      <button id="refresh" class="hbtn" type="button" aria-label="Synchroniser" data-icon="refresh"></button>
+      <a href="#/settings" class="hbtn" aria-label="Réglages" data-icon="settings"></a>
     </div>
   </header>
   <div id="status" class="status"></div>
   <main id="view"></main>
-  <nav class="tabs"></nav>
+  <nav class="tabs" aria-label="Onglets"></nav>
   <div id="toast" class="toast"></div>
   <div id="scrim" class="scrim"></div>
   <aside id="drawer" class="drawer" aria-label="Espaces">
     <div class="drawer-h">Espaces</div>
-    <a href="#/today" data-space="sport">🏋️ Sport</a>
-    <a href="#/n/jour" data-space="nutrition">🥗 Nutrition</a>
-    <a href="#/s/nuit" data-space="sommeil">😴 Sommeil</a>
+    <a href="#/today" data-space="sport"><span data-icon="sport"></span>Sport</a>
+    <a href="#/n/jour" data-space="nutrition"><span data-icon="food"></span>Nutrition</a>
+    <a href="#/s/nuit" data-space="sommeil"><span data-icon="moon"></span>Sommeil</a>
     <div class="drawer-sep"></div>
-    <a href="#/settings">⚙︎ Réglages</a>
+    <a href="#/settings"><span data-icon="settings"></span>Réglages</a>
   </aside>
 </body>
 </html>

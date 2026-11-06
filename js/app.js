@@ -3,10 +3,11 @@ import * as U from "./util.js";
 import { renderProgress } from "./charts.js";
 import { OTHER, fillPicker, pickLabel, textInput, durationInput } from "./pickers.js";
 import { ingestNutrition, renderNutrition, forgetDay } from "./nutrition.js";
+import { icon } from "./icons.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v2.9";
+export const APP_VERSION = "v3.0";
 
 const S = {
   cfg: loadConfig(),
@@ -133,18 +134,74 @@ function badge(type) {
   return `<span class="badge t-${type}">${TYPE_LABEL[type] || type}</span>`;
 }
 
-function sessionCard(s, log) {
-  const status = log ? `<span class="st">${STATUS_ICON[log.status] || ""}</span>` : "";
-  const meta = [
-    s.when || "",
-    s.duration_min ? `${s.duration_min} min` : "",
-    s.rpe_target && s.rpe_target !== "—" ? `RPE ${s.rpe_target}` : "",
-  ].filter(Boolean).join(" · ");
-  return `<a class="card session" href="#/session/${encodeURIComponent(s.id)}">
-    <div class="row">${badge(s.type)}${status}</div>
-    <h3>${U.esc(s.title)}</h3>
-    ${meta ? `<p class="meta">${U.esc(meta)}</p>` : ""}
-    ${s.attention ? `<p class="warn">⚠️ ${U.esc(s.attention)}</p>` : ""}
+// Couleur de chaque type de séance (mêmes teintes que les badges).
+const TYPE_TINT = {
+  course: "#8fd0ff", muscu: "#ffc875", hyrox: "var(--accent)", course_officielle: "var(--accent)",
+  foot: "#7fe0a6", test: "#ff9cf5", mobilite: "#c9ccd3", repos: "var(--muted)", autre: "var(--muted)",
+};
+const typeTag = (type) =>
+  `<span class="tag" style="--tc:${TYPE_TINT[type] || "var(--muted)"}"><i></i>${U.esc(TYPE_LABEL[type] || type)}</span>`;
+const DOW = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
+
+// Bandeau L→D de la semaine en cours : point jaune = séance faite, orange = à saisir, gris = prévue.
+function weekStrip(t) {
+  const monday = U.mondayOf(t);
+  const byPlan = logByPlan();
+  const letters = ["L", "M", "M", "J", "V", "S", "D"];
+  return `<nav class="wstrip" aria-label="Cette semaine">${letters.map((l, i) => {
+    const d = U.addDays(monday, i);
+    const planned = S.plan.sessions.filter((s) => s.date === d && s.type !== "repos");
+    const done = S.logs.some((l2) => l2.date === d && l2.type !== "repos" && l2.status !== "saute");
+    const toLog = d < t && planned.some((s) => !byPlan.has(s.id));
+    const dot = toLog ? "miss" : done ? "done" : planned.length && d >= t ? "plan" : "";
+    return `<a href="#/week" class="wd ${d === t ? "on" : ""}" aria-label="${U.fmtDay(d, true)}"${d === t ? ' aria-current="date"' : ""}>
+      <span>${l}</span><b>${+d.slice(8)}</b><i class="${dot}"></i></a>`;
+  }).join("")}</nav>`;
+}
+
+// Compte à rebours + avancement de la phase en cours (profil/objectifs.json).
+function raceHero(t) {
+  const race = S.objectifs?.course;
+  if (!race) return "";
+  const countdown = U.daysBetween(t, race.date);
+  if (countdown < 0) return "";
+  const ph = (S.objectifs.phases || []).find((p) => p.debut <= t && t <= p.fin);
+  let prog = "";
+  if (ph) {
+    const total = U.daysBetween(ph.debut, ph.fin) + 1;
+    const pct = Math.round(((U.daysBetween(ph.debut, t) + 1) / total) * 100);
+    const wk = `semaine ${Math.floor(U.daysBetween(ph.debut, t) / 7) + 1}/${Math.ceil(total / 7)}`;
+    prog = `<div class="hero-p"><span>${U.esc(ph.nom)} · ${wk}</span><span>${pct} %</span></div>
+      <div class="pbar"><i style="width:${pct}%"></i></div>`;
+  }
+  return `<a class="hero" href="#/goals">
+    <div class="hero-t"><div class="big">J-${countdown}</div>
+      <div class="hero-r"><strong>${U.esc(race.nom)}</strong><span class="meta">${U.fmtDay(race.date)}</span></div></div>
+    ${prog}</a>`;
+}
+
+// Séance du jour : grande carte avec le bouton de saisie.
+function todayCard(s, log) {
+  const chips = [s.when, s.rpe_target && s.rpe_target !== "—" ? `RPE ${s.rpe_target}` : ""].filter(Boolean);
+  const href = `#/session/${encodeURIComponent(s.id)}`;
+  return `<section class="tcard">
+    <div class="tcard-h">${typeTag(s.type)}<span class="meta">${s.duration_min ? `${s.duration_min} min` : ""}</span></div>
+    <a href="${href}"><h3>${U.esc(s.title)}</h3></a>
+    ${chips.length ? `<div class="pills">${chips.map((c) => `<span>${U.esc(c)}</span>`).join("")}</div>` : ""}
+    ${s.attention ? `<p class="warn">${icon("alert", 16)}${U.esc(s.attention)}</p>` : ""}
+    ${log ? `<a class="btn ghost wide" href="#/log/${encodeURIComponent(log.id)}">${STATUS_ICON[log.status] || ""} ${STATUS_LABEL[log.status] || "Saisie"} · voir ma saisie</a>`
+      : s.type === "repos" ? "" : `<a class="btn wide" href="#/edit/plan/${encodeURIComponent(s.id)}">Saisir la séance ${icon("arrow", 18, 2.2)}</a>`}
+  </section>`;
+}
+
+// Ligne compacte (à saisir, à venir).
+function sessionRow(s, log, warn = false) {
+  const d = U.parseISO(s.date);
+  const meta = [TYPE_LABEL[s.type] || s.type, s.duration_min ? `${s.duration_min} min` : ""].filter(Boolean).join(" · ");
+  return `<a class="srow" href="#/session/${encodeURIComponent(s.id)}">
+    <span class="srow-d"><small>${DOW[d.getDay()]}</small><b>${d.getDate()}</b></span>
+    <span class="srow-t"><b>${U.esc(s.title)}</b><small class="${warn ? "warn" : ""}">${warn ? "À saisir · " : ""}${U.esc(meta)}</small></span>
+    ${log ? `<span>${STATUS_ICON[log.status] || ""}</span>` : icon("right", 18)}
   </a>`;
 }
 
@@ -194,21 +251,19 @@ function viewToday() {
   const next = sessions.filter((s) => s.date > t).slice(0, 4);
   const missing = sessions.filter((s) => s.date < t && U.daysBetween(s.date, t) <= 7 && !byPlan.has(s.id)
     && s.type !== "repos");
-  const race = S.objectifs?.course;
-  const countdown = race ? U.daysBetween(t, race.date) : null;
 
   return `
-    ${race && countdown >= 0 ? `<div class="hero">
-      <div class="big">J-${countdown}</div>
-      <div><strong>${U.esc(race.nom)}</strong><br><span class="meta">${U.fmtDay(race.date, true)}</span></div>
-    </div>` : ""}
-    ${S.plan.message_coach ? `<div class="coach">🧠 ${U.esc(S.plan.message_coach)}</div>` : ""}
-    <h2>Aujourd'hui <span class="meta">${U.fmtDay(t, true)}</span></h2>
-    ${todays.length ? todays.map((s) => sessionCard(s, byPlan.get(s.id))).join("")
+    ${weekStrip(t)}
+    ${raceHero(t)}
+    <div class="sec-h"><h2>Aujourd'hui</h2><span class="meta">${U.fmtDay(t)}</span></div>
+    ${todays.length ? todays.map((s) => todayCard(s, byPlan.get(s.id))).join("")
       : `<p class="empty">Rien de prévu aujourd'hui.</p>`}
-    ${missing.length ? `<h2>À saisir</h2>${missing.map((s) => sessionCard(s)).join("")}` : ""}
-    <h2>À venir</h2>
-    ${next.length ? next.map((s) => `<div class="dayline">${U.fmtDay(s.date)}</div>${sessionCard(s, byPlan.get(s.id))}`).join("")
+    ${S.plan.message_coach ? `<section class="coachmsg"><span class="av" aria-hidden="true">C</span>
+      <div><span class="lbl">Coach</span><p>${U.esc(S.plan.message_coach)}</p></div></section>` : ""}
+    ${missing.length ? `<div class="sec-h"><h2>À saisir</h2></div>
+      <div class="rows">${missing.map((s) => sessionRow(s, null, true)).join("")}</div>` : ""}
+    <div class="sec-h"><h2>À venir</h2><a class="sec-a" href="#/week">Semaine</a></div>
+    ${next.length ? `<div class="rows">${next.map((s) => sessionRow(s, byPlan.get(s.id))).join("")}</div>`
       : `<p class="empty">Aucune séance planifiée. Demande au coach !</p>`}
     <a class="btn ghost wide" href="#/edit/new">+ Saisir une séance libre</a>
   `;
@@ -258,12 +313,12 @@ function viewSession(id) {
     <a class="back" href="#/today">← Retour</a>
     <div class="row">${badge(s.type)}<span class="meta">${U.fmtDay(s.date, true)}${s.when ? ` · ${U.esc(s.when)}` : ""}</span></div>
     <h1>${U.esc(s.title)}</h1>
-    ${s.attention ? `<p class="warn">⚠️ ${U.esc(s.attention)}</p>` : ""}
+    ${s.attention ? `<p class="warn">${icon("alert", 16)}${U.esc(s.attention)}</p>` : ""}
     <dl class="info">${info.map(([k, v]) => `<dt>${k}</dt><dd>${U.esc(v)}</dd>`).join("")}</dl>
     ${blocksView(s.blocks)}
     <div class="actions">
       ${log ? `<a class="btn" href="#/log/${encodeURIComponent(log.id)}">${STATUS_ICON[log.status]} Voir ma saisie</a>`
-        : `<a class="btn" href="#/edit/plan/${encodeURIComponent(s.id)}">▶︎ Saisir cette séance</a>`}
+        : `<a class="btn" href="#/edit/plan/${encodeURIComponent(s.id)}">Saisir cette séance ${icon("arrow", 18, 2.2)}</a>`}
     </div>`;
 }
 
@@ -320,8 +375,8 @@ function viewGoals() {
   const phase = o.phases.find((ph) => ph.debut <= t && t <= ph.fin);
   return `
     <h1>Objectifs</h1>
-    <div class="hero"><div class="big">J-${U.daysBetween(t, o.course.date)}</div>
-      <div><strong>${U.esc(o.course.nom)}</strong><br><span class="meta">${U.fmtDay(o.course.date, true)} · avec ${U.esc(o.course.partenaire)}</span></div></div>
+    <div class="hero"><div class="hero-t"><div class="big">J-${U.daysBetween(t, o.course.date)}</div>
+      <div class="hero-r"><strong>${U.esc(o.course.nom)}</strong><span class="meta">${U.fmtDay(o.course.date, true)}${o.course.partenaire ? ` · avec ${U.esc(o.course.partenaire)}` : ""}</span></div></div></div>
     <div class="stats">${o.cibles.filter((c) => c.valeur.length <= 14).map((c) => `<div><span>${U.esc(c.label)}</span><strong>${U.esc(c.valeur)}</strong></div>`).join("")}</div>
     ${o.cibles.filter((c) => c.valeur.length > 14).map((c) => `<p class="meta">${U.esc(c.label)} : ${U.esc(c.valeur)}</p>`).join("")}
 
@@ -704,16 +759,16 @@ function rerenderEditor() {
 
 // Trois espaces : le menu ☰ change d'espace, la barre du bas navigue dans l'espace.
 const SPACES = {
-  sport: { label: "Sport", icon: "🏋️", home: "#/today", tabs: [
-    ["today", "#/today", "●", "Aujourd'hui"], ["week", "#/week", "▦", "Semaine"],
-    ["history", "#/history", "☰", "Historique"], ["progress", "#/progress", "↗", "Progrès"],
-    ["goals", "#/goals", "◎", "Objectifs"]] },
-  nutrition: { label: "Nutrition", icon: "🥗", home: "#/n/jour", tabs: [
-    ["jour", "#/n/jour", "●", "Aujourd'hui"], ["semaine", "#/n/semaine", "▦", "Menu"],
-    ["courses", "#/n/courses", "✓", "Courses"], ["corps", "#/n/corps", "⚖", "Poids"],
-    ["bilan", "#/n/bilan", "↗", "Bilan"]] },
-  sommeil: { label: "Sommeil", icon: "😴", home: "#/s/nuit", tabs: [
-    ["nuit", "#/s/nuit", "☾", "Cette nuit"], ["suivi", "#/s/suivi", "↗", "Suivi"]] },
+  sport: { label: "Sport", home: "#/today", tabs: [
+    ["today", "#/today", "today", "Aujourd'hui"], ["week", "#/week", "week", "Semaine"],
+    ["history", "#/history", "history", "Historique"], ["progress", "#/progress", "progress", "Progrès"],
+    ["goals", "#/goals", "goals", "Objectifs"]] },
+  nutrition: { label: "Nutrition", home: "#/n/jour", tabs: [
+    ["jour", "#/n/jour", "today", "Aujourd'hui"], ["semaine", "#/n/semaine", "book", "Menu"],
+    ["courses", "#/n/courses", "cart", "Courses"], ["corps", "#/n/corps", "scale", "Poids"],
+    ["bilan", "#/n/bilan", "bars", "Bilan"]] },
+  sommeil: { label: "Sommeil", home: "#/s/nuit", tabs: [
+    ["nuit", "#/s/nuit", "moon", "Cette nuit"], ["suivi", "#/s/suivi", "progress", "Suivi"]] },
 };
 let currentSpace = null;
 
@@ -722,13 +777,16 @@ function setSpace(space, tab) {
   if (space !== currentSpace) {
     currentSpace = space;
     const nav = document.querySelector("nav.tabs");
-    nav.style.setProperty("--n", sp.tabs.length);
+    // Barre flottante : onglet actif en pastille jaune avec son nom, les autres en icône seule.
     nav.innerHTML = sp.tabs.map(([id, href, ic, lab]) =>
-      `<a href="${href}" data-tab="${id}"><span>${ic}</span>${lab}</a>`).join("");
-    document.getElementById("space-name").textContent = sp.label.toLowerCase();
+      `<a href="${href}" data-tab="${id}" aria-label="${lab}">${icon(ic)}<span class="tl">${lab}</span></a>`).join("");
+    document.getElementById("space-name").textContent = sp.label;
     document.querySelectorAll("#drawer [data-space]").forEach((a) => a.classList.toggle("on", a.dataset.space === space));
   }
-  document.querySelectorAll("nav.tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === tab));
+  document.querySelectorAll("nav.tabs a").forEach((a) => {
+    a.classList.toggle("on", a.dataset.tab === tab);
+    if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
 }
 const setTab = (name) => setSpace(currentSpace || "sport", name);
 
@@ -833,6 +891,11 @@ $drawer.onclick = (e) => { if (e.target.closest("a")) closeDrawer(); };
 document.addEventListener("visibilitychange", () => {
   // Retour dans l'app après >2 min : on resynchronise (le coach a pu modifier le plan).
   if (document.visibilityState === "visible" && Date.now() - S.loadedAt > 120000 && !ED) loadAll({ silent: true });
+});
+
+// Icônes de l'en-tête et du volet (balises data-icon dans index.html).
+document.querySelectorAll("[data-icon]").forEach((el) => {
+  el.insertAdjacentHTML("afterbegin", icon(el.dataset.icon, +(el.dataset.size || 20)));
 });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

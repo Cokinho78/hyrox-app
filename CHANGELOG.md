@@ -3,6 +3,17 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
+## v3.0 — 2026-11-06
+- Nouveau design (direction A des maquettes) : noir plus profond, cartes sans bordure aux coins plus
+  ronds, icônes au trait à la place des emojis et symboles. Le jaune ne change pas.
+- En-tête : logo HYROX + bouton d'espace (« Sport ▾ ») qui ouvre le volet ; synchro et réglages en icônes.
+- Barre du bas flottante : l'onglet actif en pastille jaune avec son nom, les autres en icône seule.
+- Aujourd'hui : bandeau de la semaine (point jaune = séance faite, orange = à saisir, gris = prévue),
+  compte à rebours avec l'avancement de la phase en cours, séance du jour en grande carte avec bouton
+  « Saisir la séance », message du coach, listes « À saisir » et « À venir » compactes.
+- Vue ordinateur : menu à gauche (Saison, Mois, Semaine, Séance, Analyses), synchro et réglages en bas,
+  mêmes couleurs que l'app. Sur un écran étroit, le menu repasse en haut.
+
 ## v2.9 — 2026-11-06 · commit a69f381
 - Repas du jour : ajout d'un aliment par recherche texte. Le menu déroulant devient un champ
   « + Ajouter : chercher un aliment… » : quelques lettres suffisent, les aliments, recettes et plats
