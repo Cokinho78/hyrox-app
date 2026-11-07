@@ -46,16 +46,26 @@ h2 { font-size: 22px; }
 }
 .dlogo { padding: 0 12px; font: 800 30px "Barlow Condensed", sans-serif; color: var(--accent); }
 .dlogo span { color: var(--muted); font-size: 18px; font-weight: 600; margin-left: 6px; text-transform: lowercase; }
-.dnav { display: flex; flex-direction: column; gap: 2px; }
+.dnav { position: relative; display: flex; flex-direction: column; gap: 2px; }
+/* Surlignage jaune qui glisse d'un niveau à l'autre (position posée par desktop.js). */
+.dind {
+  position: absolute; left: 0; top: 0; width: 0; height: 0; border-radius: 12px;
+  background: var(--accent); opacity: 0; pointer-events: none;
+  transition: transform 0.4s cubic-bezier(0.3, 1.2, 0.5, 1), width 0.4s cubic-bezier(0.3, 1.2, 0.5, 1),
+    height 0.4s cubic-bezier(0.3, 1.2, 0.5, 1), opacity 0.2s;
+}
 .dnav a {
+  position: relative; z-index: 1;
   display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px;
   border-radius: 12px; color: var(--soft); font-weight: 600;
   transition: background-color 0.2s, color 0.2s;
 }
-.dnav a .ic { color: var(--muted); }
+.dnav a .ic { color: var(--muted); transition: color 0.2s; }
 .dnav a:hover { color: var(--text); background: var(--surface2); }
-.dnav a.on { color: #111; background: var(--accent); }
-.dnav a.on .ic { color: #111; }
+/* Le texte passe au noir quand le surlignage arrive, pas avant. */
+.dnav a.on, .dnav a.on:hover { color: #111; background: transparent; transition: color 0.2s 0.12s, background-color 0.2s; }
+.dnav a.on .ic { color: #111; transition: color 0.2s 0.12s; }
+.dnav.snap, .dnav.snap * { transition: none !important; }
 .dside-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .dside-foot .dbtn { justify-content: center; }
 .dsync { display: flex; align-items: center; gap: 8px; padding: 0 12px 4px; color: var(--muted); font-size: 13px; }
@@ -223,6 +233,25 @@ select.dsel { min-height: 40px; border-radius: 10px; border: 1px solid var(--lin
   h1 { font-size: 32px; }
   .kpi.big { font-size: 72px; }
 }
+
+/* Survol : les cartes cliquables se soulèvent légèrement. */
+.scard, .cal .wk, a.list-item, a.card, .chip, .arrow, .dbtn, .toggle, .vbars .col {
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+.scard:hover, .cal .wk:hover, a.card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35); }
+a.list-item:hover, .chip:hover { transform: translateY(-1px); }
+.scard.proj:hover { transform: none; box-shadow: none; }
+.arrow:active, .dbtn:active, .toggle:active { transform: scale(0.96); }
+
+/* Arrivée sur une page : barres, jauges et courbes se dessinent (classe .enter posée ~1 s par desktop.js). */
+.dmain.enter .vbars .col { animation: d-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.dmain.enter .simple-bars i { transform-origin: bottom; animation: d-grow-y 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.dmain.enter .meter > div { transform-origin: left; animation: d-grow-x 0.8s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.dmain.enter .split, .dmain.enter .chart svg { animation: d-reveal 0.9s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes d-rise { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes d-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes d-grow-y { from { transform: scaleY(0); } }
+@keyframes d-grow-x { from { transform: scaleX(0); } }
 
 /* Réglage système « réduire les animations » : rien ne bouge. */
 @media (prefers-reduced-motion: reduce) {

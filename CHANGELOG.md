@@ -3,6 +3,13 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
+## v3.3 — 2026-11-07
+- Vue ordinateur : le surlignage jaune du menu glisse d'un niveau à l'autre (Saison, Mois, Semaine,
+  Séance, Analyses). Les pages arrivent par la droite quand on descend d'un niveau ou qu'on passe au
+  mois / à la semaine suivant(e), par la gauche dans l'autre sens. Les cartes cliquables se soulèvent
+  au survol ; barres, jauges et courbes se dessinent à l'arrivée sur une page.
+- App mobile : le texte de l'onglet passe au noir quand la pastille arrive, pas avant.
+
 ## v3.2 — 2026-11-07 · commit d735a0c
 - Barre du bas : la pastille jaune glisse d'un onglet à l'autre (léger rebond à l'arrivée) pendant que
   le nom de l'onglet s'ouvre.

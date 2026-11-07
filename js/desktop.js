@@ -85,6 +85,7 @@ async function loadAll() {
       .sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id));
     S.loaded = true;
     S.error = "";
+    markEnter();
     const t = new Date();
     setSync(S.store.offline ? "Hors ligne — dernières données connues"
       : `Synchronisé · ${S.logs.length} séances · ${U.pad(t.getHours())}:${U.pad(t.getMinutes())}`, S.store.offline ? "err" : "ok");
@@ -1252,8 +1253,76 @@ function nav(active) {
     ["seance", "Séance", `#/seance/${encodeURIComponent(S.pos.seance || S.logs.filter((l) => l.date <= t).at(-1)?.id || "")}`, "today"],
     ["analyses", "Analyses", "#/analyses", "progress"],
   ];
-  document.getElementById("dnav").innerHTML = items
-    .map(([k, l, h, ic]) => `<a href="${h}" class="${k === active ? "on" : ""}"${k === active ? ' aria-current="page"' : ""}>${icon(ic, 19)}<span>${l}</span></a>`).join("");
+  const el = document.getElementById("dnav");
+  // Liens créés une fois puis mis à jour : le surlignage (.dind) peut glisser d'un niveau à l'autre.
+  if (!el.querySelector("a")) {
+    el.innerHTML = `<span class="dind" aria-hidden="true"></span>`
+      + items.map(([k, l, , ic]) => `<a data-k="${k}">${icon(ic, 19)}<span>${l}</span></a>`).join("");
+  }
+  for (const [k, , h] of items) {
+    const a = el.querySelector(`a[data-k="${k}"]`);
+    a.setAttribute("href", h);
+    a.classList.toggle("on", k === active);
+    if (k === active) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  }
+  placeNavInd(navPlaced);
+  navPlaced = true;
+}
+
+// Surlignage jaune sous le niveau actif : vertical dans le menu latéral, horizontal quand le menu
+// passe en haut (écran étroit). Sans animation au premier affichage et au redimensionnement.
+let navPlaced = false;
+function placeNavInd(animate) {
+  const el = document.getElementById("dnav");
+  const ind = el.querySelector(".dind");
+  if (!ind) return;
+  const on = el.querySelector("a.on");
+  if (!animate) el.classList.add("snap");
+  if (on) {
+    ind.style.width = `${on.offsetWidth}px`;
+    ind.style.height = `${on.offsetHeight}px`;
+    ind.style.transform = `translate(${on.offsetLeft}px, ${on.offsetTop}px)`;
+  }
+  ind.style.opacity = on ? "1" : "0";
+  if (!animate) {
+    void ind.offsetWidth;
+    el.classList.remove("snap");
+  }
+}
+window.addEventListener("resize", () => placeNavInd(false));
+document.fonts?.ready.then(() => placeNavInd(false));
+
+// ---------------------------------------------------------------- transitions entre pages
+// Descendre d'un niveau (Saison → Mois → Semaine → Séance → Analyses) : glissement depuis la droite,
+// remonter : depuis la gauche. Mois / semaine / séance suivant(e) ou précédent(e) : selon la date.
+const LEVELS = ["saison", "mois", "semaine", "seance", "analyses"];
+const reduceMotion = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+let lastHash = location.hash;
+let enterTimer = 0;
+
+function navKind(prev, next) {
+  const [, r0 = "saison", a0 = ""] = (prev || "#/saison").split("/");
+  const [, r1 = "saison", a1 = ""] = (next || "#/saison").split("/");
+  if (r0 === r1) {
+    const [d0, d1] = [decodeURIComponent(a0), decodeURIComponent(a1)];
+    return /^\d{4}-\d{2}/.test(d0) && /^\d{4}-\d{2}/.test(d1) && d0 !== d1 ? (d1 > d0 ? "right" : "left") : "up";
+  }
+  const [i0, i1] = [LEVELS.indexOf(r0), LEVELS.indexOf(r1)];
+  return i0 >= 0 && i1 >= 0 ? (i1 > i0 ? "right" : "left") : "up";
+}
+
+const SHIFT = { right: "translateX(24px)", left: "translateX(-24px)", up: "translateY(10px)" };
+function animateView(kind) {
+  if (reduceMotion() || !$view.animate) return;
+  $view.animate([{ opacity: 0, transform: SHIFT[kind] }, { opacity: 1, transform: "none" }],
+    { duration: 280, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+}
+
+// Pendant un court instant après une arrivée sur une page, les barres et courbes se dessinent (CSS .enter).
+function markEnter() {
+  $view.classList.add("enter");
+  clearTimeout(enterTimer);
+  enterTimer = setTimeout(() => $view.classList.remove("enter"), 1400);
 }
 
 function render() {
@@ -1301,13 +1370,12 @@ $view.addEventListener("click", (e) => {
   window.scrollTo(0, y);
 });
 window.addEventListener("hashchange", () => {
+  const kind = navKind(lastHash, location.hash);
+  lastHash = location.hash;
+  markEnter();
   render();
   window.scrollTo(0, 0);
-  // Changement de page : fondu avec légère montée (rien si « réduire les animations »).
-  if ($view.animate && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-    $view.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
-      { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
-  }
+  animateView(kind);
 });
 document.getElementById("drefresh").onclick = () => loadAll();
 
