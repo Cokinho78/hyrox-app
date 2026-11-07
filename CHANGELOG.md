@@ -3,6 +3,17 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
+## v3.2 — 2026-11-07
+- Barre du bas : la pastille jaune glisse d'un onglet à l'autre (léger rebond à l'arrivée) pendant que
+  le nom de l'onglet s'ouvre.
+- Changement de page : l'écran glisse depuis la droite ou la gauche selon l'onglet choisi, ou selon la
+  date (semaine suivante/précédente, jour suivant/précédent en nutrition). Détail d'une séance et retours :
+  légère montée en fondu. Changement d'espace (Sport, Nutrition, Sommeil) : léger zoom.
+- Boutons, lignes et cartes s'enfoncent légèrement au toucher ; la barre d'avancement de la phase se
+  remplit à l'ouverture d'Aujourd'hui.
+- Vue ordinateur : fondu léger au changement de page.
+- Réglage iPhone « Réduire les animations » respecté : plus aucun effet.
+
 ## v3.1 — 2026-11-06 · commit c20cce0
 - Barre du bas : elle flotte maintenant par-dessus le contenu, qui défile jusqu'en bas de l'écran
   (avant, une bande vide restait sous la barre). Barre plus proche du bas, juste au-dessus de la barre

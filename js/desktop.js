@@ -1300,7 +1300,15 @@ $view.addEventListener("click", (e) => {
   render();
   window.scrollTo(0, y);
 });
-window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
+window.addEventListener("hashchange", () => {
+  render();
+  window.scrollTo(0, 0);
+  // Changement de page : fondu avec légère montée (rien si « réduire les animations »).
+  if ($view.animate && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    $view.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
+      { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+  }
+});
 document.getElementById("drefresh").onclick = () => loadAll();
 
 render();
