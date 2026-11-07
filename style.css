@@ -86,14 +86,32 @@ main::after { content: ""; display: block; height: calc(var(--tabs-h) + var(--ta
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   border: 1px solid var(--line); border-radius: 24px;
 }
-.tabs a {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  height: 44px; min-width: 44px; border-radius: 16px; color: var(--muted);
+.tabs { --ease-tab: cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* Pastille jaune qui glisse d'un onglet à l'autre (position et largeur posées par app.js),
+   avec un léger rebond à l'arrivée. */
+.tabs .ind {
+  position: absolute; left: 0; top: 0; bottom: 0; margin: auto 0; width: 0; height: 44px;
+  border-radius: 16px; background: var(--accent); opacity: 0; pointer-events: none;
+  transition: transform 0.42s cubic-bezier(0.3, 1.25, 0.5, 1), width 0.42s cubic-bezier(0.3, 1.25, 0.5, 1), opacity 0.2s;
 }
-.tabs a .tl { display: none; font-size: 13px; font-weight: 700; white-space: nowrap; }
-.tabs a.on { padding: 0 14px; background: var(--accent); color: var(--accent-ink); }
-.tabs a.on .tl { display: inline; }
-@media (max-width: 359px) { .tabs a.on .tl { display: none; } .tabs a.on { padding: 0 12px; } }
+.tabs a {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  height: 44px; min-width: 44px; padding: 0; border-radius: 16px; color: var(--muted);
+  transition: color 0.25s, padding 0.42s var(--ease-tab);
+}
+.tabs a .tl {
+  display: inline-block; max-width: 0; margin-left: 0; opacity: 0; overflow: hidden;
+  font-size: 13px; font-weight: 700; white-space: nowrap;
+  transition: max-width 0.42s var(--ease-tab), margin-left 0.42s var(--ease-tab), opacity 0.15s;
+}
+.tabs a.on { padding: 0 14px; color: var(--accent-ink); }
+.tabs a.on .tl { max-width: 8em; margin-left: 6px; opacity: 1; transition-delay: 0s, 0s, 0.14s; }
+.tabs a:active .ic { transform: scale(0.88); }
+.tabs a .ic { transition: transform 0.15s; }
+/* Mesure de la position finale de la pastille : tout figé le temps d'un calcul. */
+.tabs.snap, .tabs.snap * { transition: none !important; }
+@media (max-width: 359px) { .tabs a.on .tl { max-width: 0; margin-left: 0; opacity: 0; } .tabs a.on { padding: 0 12px; } }
 
 .status { flex: none; display: none; text-align: center; font-size: 13px; padding: 6px; background: var(--surface2); color: var(--muted); }
 .status.show { display: block; }
@@ -117,7 +135,9 @@ main::after { content: ""; display: block; height: calc(var(--tabs-h) + var(--ta
   min-height: 52px; padding: 0 18px; border: 0; border-radius: 14px;
   background: var(--accent); color: var(--accent-ink);
   font: 700 16px "Barlow", sans-serif; cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
 }
+.btn:active { transform: scale(0.97); filter: brightness(0.92); }
 .btn.ghost { background: var(--surface2); color: var(--text); }
 .btn.small { min-height: 36px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
 .btn.wide { width: 100%; margin-top: 16px; }
@@ -158,7 +178,8 @@ main::after { content: ""; display: block; height: calc(var(--tabs-h) + var(--ta
 .hero-p { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; font-size: 13px; color: var(--muted); }
 .hero-p span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pbar { height: 6px; margin-top: 6px; border-radius: 99px; background: #262a31; overflow: hidden; }
-.pbar i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.pbar i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transform-origin: left; animation: pbar-in 0.9s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes pbar-in { from { transform: scaleX(0); } }
 .coach { background: var(--surface); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 15px; }
 
 /* ---- aujourd'hui */
@@ -252,6 +273,8 @@ dl.info dd { margin: 0; }
 }
 .chip.num { min-width: 40px; padding: 0; }
 .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip { transition: transform 0.15s ease, background-color 0.2s, color 0.2s; }
+.chip:active { transform: scale(0.94); }
 .month { font-size: 15px; color: var(--accent); margin: 18px 0 6px; }
 .logrow { display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .logrow .d { color: var(--muted); font-size: 14px; }
@@ -292,6 +315,8 @@ input.num:focus, select.num:focus, .form input:focus, .form textarea:focus { out
   color: #5d636e; font-size: 20px; font-weight: 700; cursor: pointer;
 }
 .check.on { background: var(--ok); color: #062; border-color: var(--ok); }
+.check { transition: transform 0.15s ease; }
+.check:active { transform: scale(0.92); }
 .item-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .savebar { position: sticky; bottom: calc(var(--tabs-h) + var(--tabs-gap) + 10px); z-index: 5; padding-top: 8px; }
 
@@ -413,3 +438,16 @@ input.num:focus, select.num:focus, .form input:focus, .form textarea:focus { out
 /* Direction A : cartes sans bordure visible. En fin de fichier pour passer après chaque composant ;
    les états qui colorent une bordure (repas prévu, douleur…) ont une sélection plus précise et restent visibles. */
 .card, .block, .chartbox, .estcard, .stats div, .box { border-color: transparent; }
+
+/* Retour visuel au toucher : léger enfoncement des cartes et lignes cliquables. */
+.tcard > a:not(.btn) { display: block; }
+.srow, .wd, .hero, .logrow, .add-hit, .tcard > a:not(.btn), .space-btn, .hbtn { transition: transform 0.15s ease, background-color 0.2s; }
+.srow:active, .hero:active, .logrow:active, .add-hit:active { transform: scale(0.985); }
+.wd:active, .space-btn:active, .hbtn:active { transform: scale(0.94); }
+.tcard > a:not(.btn):active { transform: scale(0.98); }
+.wd { transition: transform 0.15s ease, background-color 0.25s, color 0.25s; }
+
+/* Réglage iPhone « Réduire les animations » : rien ne bouge. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

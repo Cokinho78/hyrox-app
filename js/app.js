@@ -7,7 +7,7 @@ import { icon } from "./icons.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v3.1";
+export const APP_VERSION = "v3.2";
 
 const S = {
   cfg: loadConfig(),
@@ -771,24 +771,99 @@ const SPACES = {
     ["nuit", "#/s/nuit", "moon", "Cette nuit"], ["suivi", "#/s/suivi", "progress", "Suivi"]] },
 };
 let currentSpace = null;
+let currentTab = null;
+const $tabs = document.querySelector("nav.tabs");
+const reduceMotion = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 function setSpace(space, tab) {
   const sp = SPACES[space];
+  let fresh = false;
   if (space !== currentSpace) {
     currentSpace = space;
-    const nav = document.querySelector("nav.tabs");
-    // Barre flottante : onglet actif en pastille jaune avec son nom, les autres en icône seule.
-    nav.innerHTML = sp.tabs.map(([id, href, ic, lab]) =>
+    fresh = true;
+    // Barre flottante : pastille jaune (.ind) sous l'onglet actif, qui affiche son nom ; les autres en icône seule.
+    $tabs.innerHTML = `<span class="ind" aria-hidden="true"></span>` + sp.tabs.map(([id, href, ic, lab]) =>
       `<a href="${href}" data-tab="${id}" aria-label="${lab}">${icon(ic)}<span class="tl">${lab}</span></a>`).join("");
     document.getElementById("space-name").textContent = sp.label;
     document.querySelectorAll("#drawer [data-space]").forEach((a) => a.classList.toggle("on", a.dataset.space === space));
   }
-  document.querySelectorAll("nav.tabs a").forEach((a) => {
-    a.classList.toggle("on", a.dataset.tab === tab);
-    if (a.dataset.tab === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
-  });
+  const changed = tab !== currentTab;
+  currentTab = tab;
+  if (fresh || changed) setActiveTab(!fresh);
 }
 const setTab = (name) => setSpace(currentSpace || "sport", name);
+
+// La pastille glisse vers le nouvel onglet pendant que son nom s'ouvre. Sa position finale dépend
+// de cette ouverture : on applique le nouvel état sans transition pour la mesurer, on revient à
+// l'ancien, puis on rejoue le changement avec les transitions.
+function setActiveTab(animate) {
+  const links = [...$tabs.querySelectorAll("a[data-tab]")];
+  const ind = $tabs.querySelector(".ind");
+  if (!ind) return;
+  const apply = () => links.forEach((a) => {
+    const on = a.dataset.tab === currentTab;
+    a.classList.toggle("on", on);
+    if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  const motion = animate && !reduceMotion();
+  const before = links.map((a) => a.classList.contains("on"));
+  $tabs.classList.add("snap");
+  apply();
+  const target = links.find((a) => a.classList.contains("on"));
+  const geo = target && [target.offsetLeft, target.offsetWidth];
+  if (motion) {
+    links.forEach((a, i) => a.classList.toggle("on", before[i]));
+    void $tabs.offsetWidth;
+    $tabs.classList.remove("snap");
+    void $tabs.offsetWidth;
+    apply();
+  }
+  if (geo) {
+    ind.style.width = `${geo[1]}px`;
+    ind.style.transform = `translateX(${geo[0]}px)`;
+  }
+  ind.style.opacity = geo ? "1" : "0";
+  if (!motion) {
+    void ind.offsetWidth;
+    $tabs.classList.remove("snap");
+  }
+}
+window.addEventListener("resize", () => setActiveTab(false));
+document.fonts?.ready.then(() => setActiveTab(false));
+
+// ---------------------------------------------------------------- transitions entre pages
+// Seulement quand on navigue (pas sur une resynchro ni quand une page se redessine elle-même).
+const VIEW_ANIM = {
+  right: [{ opacity: 0, transform: "translateX(28px)" }, { opacity: 1, transform: "none" }],
+  left: [{ opacity: 0, transform: "translateX(-28px)" }, { opacity: 1, transform: "none" }],
+  up: [{ opacity: 0, transform: "translateY(12px)" }, { opacity: 1, transform: "none" }],
+  space: [{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "none" }],
+};
+const tabIndex = () => (SPACES[currentSpace]?.tabs || []).findIndex(([id]) => id === currentTab);
+const DATE_RE = /\/(\d{4}-\d{2}-\d{2})/;
+
+// Changement d'espace : zoom léger. Onglet à droite ou à gauche (ou semaine/jour suivant ou précédent) :
+// glissement dans ce sens. Le reste (détail d'une séance, retour…) : légère montée.
+function navKind(prev, hash) {
+  if (prev.space !== currentSpace) return "space";
+  if (prev.tab !== currentTab) {
+    const i = tabIndex();
+    return i >= 0 && prev.idx >= 0 ? (i > prev.idx ? "right" : "left") : "up";
+  }
+  // Même page à une autre date (« #/week » sans date = aujourd'hui) : sens selon la date.
+  const base = (h) => h.replace(DATE_RE, "");
+  if (base(prev.hash) === base(hash)) {
+    const d0 = prev.hash.match(DATE_RE)?.[1] || U.isoDate();
+    const d1 = hash.match(DATE_RE)?.[1] || U.isoDate();
+    if (d0 !== d1) return d1 > d0 ? "right" : "left";
+  }
+  return "up";
+}
+
+function animateView(kind) {
+  if (!kind || reduceMotion() || !$view.animate) return;
+  $view.animate(VIEW_ANIM[kind], { duration: kind === "space" ? 320 : 260, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+}
 
 // Enregistrement générique pour le volet nutrition (retourne true si OK).
 const nutCtx = {
@@ -876,10 +951,16 @@ function bindSettings() {
   };
 }
 
+let lastHash = location.hash;
 window.addEventListener("hashchange", () => {
+  const prev = { space: currentSpace, tab: currentTab, idx: tabIndex(), hash: lastHash };
+  lastHash = location.hash;
   render();
   if (!location.hash.startsWith("#/edit")) $view.scrollTop = 0;
+  animateView(navKind(prev, location.hash));
 });
+// Sur iPhone, :active (léger enfoncement des boutons) ne s'applique qu'avec un écouteur touchstart.
+document.addEventListener("touchstart", () => {}, { passive: true });
 document.getElementById("refresh").onclick = () => loadAll();
 
 // ---------------------------------------------------------------- volet latéral

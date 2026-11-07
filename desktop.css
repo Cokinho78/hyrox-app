@@ -50,6 +50,7 @@ h2 { font-size: 22px; }
 .dnav a {
   display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px;
   border-radius: 12px; color: var(--soft); font-weight: 600;
+  transition: background-color 0.2s, color 0.2s;
 }
 .dnav a .ic { color: var(--muted); }
 .dnav a:hover { color: var(--text); background: var(--surface2); }
@@ -221,4 +222,9 @@ select.dsel { min-height: 40px; border-radius: 10px; border: 1px solid var(--lin
   .dmain { padding-left: 16px; padding-right: 16px; }
   h1 { font-size: 32px; }
   .kpi.big { font-size: 72px; }
+}
+
+/* Réglage système « réduire les animations » : rien ne bouge. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
