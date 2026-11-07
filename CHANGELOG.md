@@ -3,7 +3,7 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v3.2 — 2026-11-07
+## v3.2 — 2026-11-07 · commit d735a0c
 - Barre du bas : la pastille jaune glisse d'un onglet à l'autre (léger rebond à l'arrivée) pendant que
   le nom de l'onglet s'ouvre.
 - Changement de page : l'écran glisse depuis la droite ou la gauche selon l'onglet choisi, ou selon la
