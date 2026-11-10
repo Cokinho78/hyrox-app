@@ -3,7 +3,7 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
-## v3.4 — 2026-11-10
+## v3.4 — 2026-11-10 · commit 0fea1df
 - Vue ordinateur, Mois : le calendrier n'est plus coupé à droite (le dimanche disparaissait sur un
   écran de 1 380 à 1 550 px depuis le menu latéral). Il garde sa largeur utile ; s'il manque de place,
   le résumé du mois passe dessous (les deux cartes côte à côte, la légende en dessous).
