@@ -124,6 +124,11 @@ a.list-item:hover { color: var(--text); outline: 1px solid var(--accent); }
 .frise .race s { display: block; width: 2px; height: 12px; background: currentColor; }
 .frise .bar { position: absolute; left: 0; right: 0; top: 58px; height: 40px; border-radius: 8px; background: var(--sunken); }
 .frise .seg { position: absolute; top: 0; bottom: 0; border-radius: 6px; font-size: 12px; font-weight: 600; padding: 0 6px; display: flex; align-items: center; overflow: hidden; white-space: nowrap; }
+.phlist { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.ph { display: inline-flex; align-items: center; gap: 6px; }
+.ph i { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+.ph b { color: var(--text); font-weight: 600; }
+.ph.on b { color: var(--accent); }
 .frise .weeks { position: absolute; left: 0; right: 0; top: 102px; height: 8px; }
 .frise .wk { position: absolute; top: 0; height: 8px; border-radius: 3px; }
 .frise .today { position: absolute; top: 50px; height: 64px; width: 2px; background: var(--text); }
@@ -157,7 +162,15 @@ a.list-item:hover { color: var(--text); outline: 1px solid var(--accent); }
 .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
 .toggle { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: 600 14px "Barlow", sans-serif; cursor: pointer; }
 .toggle[aria-pressed="true"] { border-color: var(--accent); background: rgba(245, 228, 0, 0.12); color: var(--accent); }
-.cal { min-width: 940px; display: grid; grid-template-columns: 124px repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal { min-width: 940px; display: grid; grid-template-columns: 124px repeat(7, minmax(0, 1fr)); gap: 6px;
+  /* 1re ligne : noms des jours ; puis toutes les semaines à la même hauteur (celle de la plus remplie). */
+  grid-template-rows: auto; grid-auto-rows: 1fr; }
+/* Le calendrier ne rétrécit pas sous sa largeur utile : le résumé du mois passe dessous s'il manque de place. */
+.wide.cal-wrap { flex-basis: 940px; }
+/* À côté du calendrier : cartes empilées ; dessous : les deux cartes côte à côte, légende en dessous. */
+.month-side { flex-basis: 300px; display: flex; flex-wrap: wrap; gap: 16px; align-content: flex-start; }
+.month-side > .card { flex: 1 1 300px; }
+.month-side > .legend { flex: 1 1 100%; }
 .cal .head { padding: 0 8px 4px; }
 .cal .wk { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 4px; min-height: 150px; }
 .cal .wk:hover { border-color: var(--accent); color: var(--text); }

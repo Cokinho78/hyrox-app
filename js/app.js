@@ -7,7 +7,7 @@ import { icon } from "./icons.js";
 
 // ---------------------------------------------------------------- état global
 
-export const APP_VERSION = "v3.3";
+export const APP_VERSION = "v3.4";
 
 const S = {
   cfg: loadConfig(),

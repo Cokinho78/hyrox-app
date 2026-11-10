@@ -3,6 +3,15 @@
 Revenir à une version : demander à Claude « reviens à la vX.Y de hyrox-app ».
 Chaque version = un commit sur `main` (tag Git du même nom quand il existe, sinon l'identifiant de commit ci-dessous).
 
+## v3.4 — 2026-11-10
+- Vue ordinateur, Mois : le calendrier n'est plus coupé à droite (le dimanche disparaissait sur un
+  écran de 1 380 à 1 550 px depuis le menu latéral). Il garde sa largeur utile ; s'il manque de place,
+  le résumé du mois passe dessous (les deux cartes côte à côte, la légende en dessous).
+- Mois : toutes les semaines ont la même hauteur (celle de la semaine la plus remplie).
+- Saison : les noms de phases ne sont plus tronqués sur la frise. Chaque segment affiche le libellé le plus
+  long qui tient (« Phase 5 — Pic », sinon « P5 Pic », sinon « P5 ») ; la liste complète des phases avec
+  leurs dates s'affiche sous la frise, la phase en cours en jaune.
+
 ## v3.3 — 2026-11-07 · commit 2958e45
 - Vue ordinateur : le surlignage jaune du menu glisse d'un niveau à l'autre (Saison, Mois, Semaine,
   Séance, Analyses). Les pages arrivent par la droite quand on descend d'un niveau ou qu'on passe au

@@ -190,6 +190,25 @@ function weekPhase(monday) {
 }
 
 const phases = () => (S.objectifs?.phases || []).slice().sort((a, b) => a.debut.localeCompare(b.debut));
+
+// « Phase 5 — Pic » → « P5 Pic » puis « P5 » ; « Décharge » → « Déch. » puis « D ».
+function phaseLabels(nom) {
+  const m = String(nom || "").match(/^phase\s*(\d+)\s*[—–-]?\s*(.*)$/i);
+  if (m) return [m[2] ? `P${m[1]} ${m[2]}` : `P${m[1]}`, `P${m[1]}`];
+  const w = String(nom || "").trim().split(/\s+/)[0] || "";
+  return [w.length > 6 ? `${w.slice(0, 4)}.` : w, w.slice(0, 1)];
+}
+
+// Chaque segment de la frise affiche le libellé le plus long qui tient (sinon rien : le nom reste au survol).
+function fitFrise() {
+  for (const el of $view.querySelectorAll(".frise .seg[data-full]")) {
+    for (const txt of [el.dataset.full, el.dataset.mid, el.dataset.short, ""]) {
+      el.textContent = txt;
+      if (el.scrollWidth <= el.clientWidth + 1) break;
+    }
+  }
+}
+window.addEventListener("resize", fitFrise);
 const phaseAt = (iso) => phases().find((p) => p.debut <= iso && iso <= p.fin) || null;
 
 function weekStats(monday) {
@@ -366,7 +385,14 @@ function viewSaison() {
     const [bg, fg] = phaseColor(p) || [i % 2 ? "#2a2f38" : "#343a46", "var(--text)"];
     const l = pos(p.debut), w = Math.max(pos(U.addDays(p.fin, 1)) - l - 0.2, 0.5);
     const future = p.debut > t;
-    return `<div class="seg" title="${esc(p.nom)} — ${esc(p.focus || "")}" style="left:${l}%;width:${w}%;background:${bg};color:${fg};${future ? "opacity:.75;border:1px dashed #4a505c" : ""}">${esc(p.nom)}</div>`;
+    const [mid, short] = phaseLabels(p.nom);
+    return `<div class="seg" title="${esc(p.nom)} — ${esc(p.focus || "")}" data-full="${esc(p.nom)}" data-mid="${esc(mid)}" data-short="${esc(short)}" style="left:${l}%;width:${w}%;background:${bg};color:${fg};${future ? "opacity:.75;border:1px dashed #4a505c" : ""}">${esc(p.nom)}</div>`;
+  }).join("");
+  // Liste lisible des phases sous la frise (noms complets et dates), phase en cours en jaune.
+  const phaseList = phases().filter((p) => p.fin >= start && p.debut <= end).map((p, i) => {
+    const [bg] = phaseColor(p) || [i % 2 ? "#2a2f38" : "#343a46"];
+    const cur = p.debut <= t && t <= p.fin;
+    return `<span class="ph${cur ? " on" : ""}" title="${esc(p.focus || "")}"><i style="background:${bg}"></i><b>${esc(p.nom)}</b>${esc(U.fmtShort(p.debut))} → ${esc(U.fmtShort(p.fin))}</span>`;
   }).join("");
   const special = [];
   for (let m = U.mondayOf(start); m <= end; m = U.addDays(m, 7)) {
@@ -394,6 +420,7 @@ function viewSaison() {
       ${t >= start && t <= end ? `<div class="today" style="left:${pos(t)}%"></div><span class="today-l" style="left:${pos(t)}%">Aujourd'hui</span>` : ""}
       ${months}
     </div></div>
+    ${phaseList ? `<div class="phlist">${phaseList}</div>` : ""}
     <p class="small muted" style="margin:0">Phases : profil/objectifs.json. Semaines de décharge et coupures : phase notée dans les séances.</p>
   </section>`;
 
@@ -534,8 +561,8 @@ function viewMois(key) {
     <div class="toggles" role="group" aria-label="Volets affichés"><button type="button" class="toggle" aria-pressed="true" disabled>Séances</button>${toggle("sleep", "Sommeil")}${toggle("food", "Nutrition")}</div>
   </div>
   <div class="row">
-    <div class="wide scroll-x"><div class="cal">${grid}</div></div>
-    <aside class="grow1" style="display:flex;flex-direction:column;gap:16px;flex-basis:300px">
+    <div class="wide scroll-x cal-wrap"><div class="cal">${grid}</div></div>
+    <aside class="grow1 month-side">
       <div class="card">
         <span class="lbl">${esc(U.fmtMonth(first))}${key === monthOf(t) ? ` au ${U.fmtShort(t)}` : ""}</span>
         <div class="grid-auto" style="--min:110px;gap:14px">
@@ -1347,6 +1374,7 @@ function render() {
   }
   const views = { saison: viewSaison, mois: viewMois, semaine: viewSemaine, seance: viewSeance, analyses: viewAnalyses };
   $view.innerHTML = (views[route] || viewSaison)(id);
+  fitFrise();
   const sel = document.getElementById("ex-select");
   if (sel) sel.onchange = () => { S.analysisEx = sel.value; render(); };
   const stSel = document.getElementById("st-from");
